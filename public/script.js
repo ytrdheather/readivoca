@@ -46,7 +46,6 @@ async function login() {
 }
 function logout() { location.reload(); }
 
-// 데이터 전송
 async function saveRecord(type, score, wrongCount, wrongWordsList) {
     if (userType !== 'student') return; 
     const bookName = document.getElementById('book-select').value;
@@ -58,7 +57,6 @@ async function saveRecord(type, score, wrongCount, wrongWordsList) {
         });
         const result = await res.json();
         if (res.ok) {
-            // 게임은 바로 랭킹 보여주기 위해 alert 생략
             if(!type.includes('game')) { alert("✅ 성공적으로 제출되었습니다! 대시보드로 돌아갑니다."); backToDashboard(); }
         } else { alert("❌ 제출 실패: " + (result.error || result.message)); }
     } catch (err) { console.error(err); }
@@ -138,7 +136,7 @@ function showSpellingResult() {
     pendingSubmission = { type:'spelling', score:score, wrongCount:wrongAnswers.length, wrongWordsText:wrongText };
     
     const btn = document.getElementById('spell-submit-btn'); const msg = document.getElementById('spell-submit-msg');
-    if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출할 수 없습니다."; msg.style.color="#dc3545"; }
+    if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출 불가!"; msg.style.color="#dc3545"; }
     else { btn.disabled=false; btn.classList.remove('btn-disabled'); btn.innerText="네! 제출할게요 ✅"; msg.innerText="훌륭해요! 점수를 보낼까요?"; msg.style.color="#28a745"; }
 
     const div = document.getElementById('spell-wrong-word-list'); div.innerHTML='';
@@ -219,16 +217,54 @@ function checkMatch() {
     else { setTimeout(()=>{ c1.el.classList.remove('flipped'); c1.el.innerText='?'; c1.el.style.background='#32bfb6'; c1.el.style.color='white'; c1.el.style.transform='rotateY(0deg)'; c2.el.classList.remove('flipped'); c2.el.innerText='?'; c2.el.style.background='#32bfb6'; c2.el.style.color='white'; c2.el.style.transform='rotateY(0deg)'; flippedCards=[]; },1000); }
 }
 
-// 게임 2: 단어 산성비
+// 게임 2: 단어 산성비 (수정됨: 멈춤 현상 수정)
 function startWordRain() {
     showSection('word-rain-section'); gameScore=0; rainWords=[]; let life=3; document.getElementById('rain-score').innerText=0; document.getElementById('rain-life').innerText="❤️❤️❤️";
     const cont=document.getElementById('rain-canvas-container'); cont.innerHTML=''; document.getElementById('rain-input').value=''; document.getElementById('rain-input').focus();
-    if(rainInterval) clearInterval(rainInterval); let tick=0;
+    
+    stopGame(); // 기존 타이머 초기화
+    let tick=0;
+    
     rainInterval=setInterval(()=>{
-        tick++; if(tick%20===0) { const w=currentWords[Math.floor(Math.random()*currentWords.length)]; const el=document.createElement('div'); el.className='rain-word'; el.innerText=w.english; el.style.left=Math.random()*(cont.clientWidth-80)+'px'; el.style.top='0px'; cont.appendChild(el); rainWords.push({el,w:w.english,top:0}); }
-        rainWords.forEach((item,i)=>{ item.top+=5; item.el.style.top=item.top+'px'; if(item.top>380){ item.el.remove(); rainWords.splice(i,1); life--; document.getElementById('rain-life').innerText="❤️".repeat(life); if(life<=0) finishGame('game_rain',gameScore); } });
+        tick++; 
+        // 1. 단어 생성
+        if(tick%20===0) { 
+            const w=currentWords[Math.floor(Math.random()*currentWords.length)]; 
+            const el=document.createElement('div'); el.className='rain-word'; el.innerText=w.english; 
+            el.style.left=Math.random()*(cont.clientWidth-80)+'px'; el.style.top='0px'; cont.appendChild(el); 
+            rainWords.push({el,w:w.english,top:0}); 
+        }
+        // 2. 단어 이동
+        rainWords.forEach((item,i)=>{ 
+            item.top+=5; item.el.style.top=item.top+'px'; 
+            if(item.top>380){ 
+                item.el.remove(); rainWords.splice(i,1); life--; document.getElementById('rain-life').innerText="❤️".repeat(life); 
+                if(life<=0) finishGame('game_rain',gameScore); 
+            } 
+        });
     },100);
-    document.getElementById('rain-input').onkeydown=(e)=>{ if(e.key==='Enter'){ const v=e.target.value.trim(); const idx=rainWords.findIndex(x=>x.w.toLowerCase()===v.toLowerCase()); if(idx>-1){ rainWords[idx].el.style.color='yellow'; setTimeout(()=>rainWords[idx].el.remove(),100); rainWords.splice(idx,1); gameScore+=50; document.getElementById('rain-score').innerText=gameScore; e.target.value=''; } } };
+
+    // 3. 입력 처리 (수정됨: 맞추면 즉시 제거)
+    document.getElementById('rain-input').onkeydown=(e)=>{ 
+        if(e.key==='Enter'){ 
+            const v=e.target.value.trim(); 
+            const idx=rainWords.findIndex(x=>x.w.toLowerCase()===v.toLowerCase()); 
+            if(idx>-1){ 
+                const target = rainWords[idx];
+                // 리스트에서 먼저 제거 (버그 방지)
+                rainWords.splice(idx, 1);
+                
+                // 시각 효과 후 DOM 제거
+                target.el.style.color='yellow'; 
+                target.el.style.transform='scale(1.5)';
+                setTimeout(()=>target.el.remove(), 200); 
+                
+                gameScore+=50; 
+                document.getElementById('rain-score').innerText=gameScore; 
+                e.target.value=''; 
+            } 
+        } 
+    };
 }
 
 async function finishGame(type, score) {
@@ -238,7 +274,11 @@ async function finishGame(type, score) {
     const div=document.getElementById('ranking-container'); div.innerHTML='';
     ranks.forEach((r,i)=>{ div.innerHTML+=`<div class="ranking-item"><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':''} ${i+1}. ${r.who}</span><b>${r.score}</b></div>`; });
 }
-function stopGame() { if(gameTimer) clearInterval(gameTimer); if(rainInterval) clearInterval(rainInterval); }
+
+function stopGame() { 
+    if(gameTimer) clearInterval(gameTimer); 
+    if(rainInterval) clearInterval(rainInterval); 
+}
 
 function startTest() { alert("시험 모드 준비중!"); }
 function initTeacherView() { loadBooks(); }
@@ -247,7 +287,12 @@ function printTestPaper() {}
 
 function showGameZone() { showSection('game-menu-section'); }
 function showSection(id) { document.querySelectorAll('.container > div').forEach(d=>d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
-function backToDashboard() { stopGame(); showSection('dashboard-section'); }
+
+// 수정된 뒤로가기 버튼 기능 (게임 종료 후 이동)
+function backToDashboard() { 
+    stopGame(); // 게임 멈추기
+    showSection('dashboard-section'); 
+}
 function goBackToSelection() { showSection('selection-section'); }
 
 function addEnterListener(id, action) { const el=document.getElementById(id); if(el) el.addEventListener('keydown',e=>{if(e.key==='Enter')action();}); }
