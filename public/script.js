@@ -16,6 +16,7 @@ let gameScore = 0;
 let rainWords = [];
 let rainInterval = null;
 let monsterHp = 100;
+let playerHp = 100; // 플레이어 HP 추가
 let monsterWords = [];
 let monsterIndex = 0;
 
@@ -268,20 +269,27 @@ function startWordRain() {
     };
 }
 
-// --- 7. 단어 몬스터 ---
+// --- 7. 단어 몬스터 (업데이트됨: 플레이어 HP 및 타격 효과) ---
 function startMonsterGame() {
     if(currentWords.length<10) return alert("단어가 10개 이상 필요해요!");
     showSection('monster-game-section');
-    gameScore=0; monsterHp=100; monsterIndex=0;
+    gameScore=0; monsterHp=100; playerHp=100; monsterIndex=0;
+    
+    // UI 초기화
     document.getElementById('monster-hp').style.width='100%';
     document.getElementById('monster-hp-text').innerText='100';
+    document.getElementById('player-hp').style.width='100%';
+    document.getElementById('player-hp-text').innerText='100';
+    document.getElementById('player-img').innerText = '😊'; // 기본 표정
+    
     // 몬스터용 랜덤 10단어
     monsterWords = [...currentWords].sort(()=>0.5-Math.random()).slice(0,10);
     loadMonsterQuiz();
 }
+
 function loadMonsterQuiz() {
     const w = monsterWords[monsterIndex];
-    document.getElementById('mon-question').innerText = w.meaning; // 뜻 보여줌
+    document.getElementById('mon-question').innerText = w.meaning; 
     
     // 보기 생성
     const opts=[w]; while(opts.length<4) { const r=currentWords[Math.floor(Math.random()*currentWords.length)]; if(!opts.some(o=>o.id===r.id)) opts.push(r); } shuffleArray(opts);
@@ -290,41 +298,92 @@ function loadMonsterQuiz() {
         const b=document.createElement('button'); b.className='option-btn'; b.innerText=o.english; 
         b.onclick=()=>{ 
             if(o.id===w.id) { 
+                // 공격 성공!
                 b.classList.add('correct');
                 hitMonster();
                 setTimeout(()=>{ 
                     monsterIndex++;
                     if(monsterIndex < 10) loadMonsterQuiz();
-                    else finishGame('game_monster', gameScore + 1000); 
+                    else finishGame('game_monster', gameScore + 1000); // 승리 보너스
                 }, 800);
-            } else { b.classList.add('wrong'); }
+            } else { 
+                // 공격 실패! (나도 맞음)
+                b.classList.add('wrong'); 
+                hitPlayer();
+            }
         }; 
         grid.appendChild(b); 
     });
 }
+
 function hitMonster() {
     monsterHp -= 10;
     document.getElementById('monster-hp').style.width = monsterHp+'%';
     document.getElementById('monster-hp-text').innerText = monsterHp;
     gameScore += 100;
     
+    // 몬스터 피격 효과
+    const monsterImg = document.getElementById('monster-img');
+    monsterImg.classList.add('shake-anim');
+    setTimeout(()=>monsterImg.classList.remove('shake-anim'), 500);
+
     const dmg = document.getElementById('monster-damage');
     dmg.classList.remove('hidden');
     dmg.innerText = "-10";
     setTimeout(()=>dmg.classList.add('hidden'), 500);
+
+    const msg = document.getElementById('monster-msg');
+    msg.classList.remove('hidden');
+    setTimeout(()=>msg.classList.add('hidden'), 500);
+}
+
+function hitPlayer() {
+    playerHp -= 20; // 틀리면 20씩 깎임 (5번 틀리면 사망)
+    document.getElementById('player-hp').style.width = Math.max(0, playerHp) + '%';
+    document.getElementById('player-hp-text').innerText = Math.max(0, playerHp);
+    
+    // 플레이어 피격 효과
+    const playerImg = document.getElementById('player-img');
+    playerImg.innerText = '😭'; // 울상
+    playerImg.classList.add('shake-anim');
+    setTimeout(()=> {
+        playerImg.classList.remove('shake-anim');
+        if(playerHp > 0) playerImg.innerText = '😊'; // 살았으면 다시 웃음
+    }, 500);
+
+    const dmg = document.getElementById('player-damage');
+    dmg.classList.remove('hidden');
+    dmg.innerText = "-20";
+    setTimeout(()=>dmg.classList.add('hidden'), 500);
+
+    const msg = document.getElementById('player-msg');
+    msg.classList.remove('hidden');
+    setTimeout(()=>msg.classList.add('hidden'), 500);
+
+    // 게임 오버 체크
+    if(playerHp <= 0) {
+        setTimeout(() => finishGame('game_monster_fail', gameScore), 500);
+    }
 }
 
 // --- 공통 게임 종료 ---
 async function finishGame(type, score) {
     stopGame(); showSection('game-result-section'); document.getElementById('game-final-score').innerText=score;
-    // 다시 하기 버튼 설정
     const replayBtn = document.getElementById('btn-replay-game');
     if(type==='game_memory') replayBtn.onclick = startMemoryGame;
     else if(type==='game_rain') replayBtn.onclick = startWordRain;
-    else if(type==='game_monster') replayBtn.onclick = startMonsterGame;
+    else if(type==='game_monster' || type==='game_monster_fail') replayBtn.onclick = startMonsterGame;
+
+    if (type === 'game_monster_fail') {
+        document.getElementById('game-result-title').innerText = "패배... ㅠㅠ";
+        document.getElementById('game-result-title').style.color = "red";
+    } else {
+        document.getElementById('game-result-title').innerText = "Game Over!";
+        document.getElementById('game-result-title').style.color = "#ff9800";
+    }
 
     await saveRecord(type, score, 0, ''); 
-    const res = await fetch(`${API_URL}/rankings?game_type=${type}`); const ranks=await res.json();
+    const res = await fetch(`${API_URL}/rankings?game_type=${type.replace('_fail', '')}`); const ranks=await res.json();
     const div=document.getElementById('ranking-container'); div.innerHTML='';
     ranks.forEach((r,i)=>{ div.innerHTML+=`<div class="ranking-item"><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':''} ${i+1}. ${r.who}</span><b>${r.score}</b></div>`; });
 }

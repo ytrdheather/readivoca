@@ -26,19 +26,17 @@
             <button class="btn-primary" onclick="goToDashboard()">학습 대시보드로 이동 🚀</button>
         </div>
 
-        <!-- 3. 대시보드 (메뉴 7개로 확장) -->
+        <!-- 3. 대시보드 -->
         <div id="dashboard-section" class="hidden">
             <h3 id="dash-unit-title">Unit Name</h3>
             <p style="font-size:0.9rem; color:#888;">학습과 게임을 통해 단어를 정복하세요!</p>
             
             <div class="menu-grid">
-                <!-- 학습 파트 -->
                 <div class="menu-card" onclick="startFlashcard()"><i class="fa-solid fa-layer-group"></i><h3>1. 암기</h3></div>
                 <div class="menu-card" onclick="startSpelling()"><i class="fa-solid fa-keyboard"></i><h3>2. 스펠링</h3></div>
                 <div class="menu-card" onclick="startContextQuiz()"><i class="fa-solid fa-rotate"></i><h3>3. 반복</h3></div>
                 <div class="menu-card" onclick="startTest()"><i class="fa-solid fa-file-signature"></i><h3>4. 테스트</h3></div>
                 
-                <!-- 게임 파트 (통합) -->
                 <div class="menu-card game-card" onclick="startMemoryGame()"><i class="fa-solid fa-clone"></i><h3>5. 카드 뒤집기</h3></div>
                 <div class="menu-card game-card" onclick="startWordRain()"><i class="fa-solid fa-cloud-rain"></i><h3>6. 단어 산성비</h3></div>
                 <div class="menu-card game-card" onclick="startMonsterGame()"><i class="fa-solid fa-dragon"></i><h3>7. 단어 몬스터</h3></div>
@@ -133,7 +131,7 @@
             <button class="btn-secondary" onclick="logout()">로그아웃</button>
         </div>
 
-        <!-- 5. 카드 짝맞추기 게임 (Game Zone 제거 후 바로 연결) -->
+        <!-- 5. 카드 짝맞추기 게임 -->
         <div id="memory-game-section" class="hidden">
             <h3 style="color:#ff9800">🃏 5. 카드 짝맞추기</h3>
             <div style="display:flex; justify-content:space-between; padding:0 20px;"><span>Time: <b id="mem-time">60</b>s</span> <span>Score: <b id="mem-score">0</b></span></div>
@@ -150,20 +148,33 @@
             <button class="btn-secondary" onclick="backToDashboard()">나가기</button>
         </div>
 
-        <!-- 7. 단어 몬스터 게임 (NEW) -->
+        <!-- 7. 단어 몬스터 게임 (업데이트됨: 플레이어 HP 추가) -->
         <div id="monster-game-section" class="hidden">
             <h3 style="color:#e91e63">🐲 7. 단어 몬스터 격파!</h3>
             
             <!-- 몬스터 영역 -->
             <div class="monster-container">
                 <div class="monster-hp-bar"><div id="monster-hp" style="width:100%"></div></div>
-                <div style="text-align:center; font-size:0.9rem; margin-bottom:10px;">Boss HP: <span id="monster-hp-text">100</span>%</div>
-                <div id="monster-img">👾</div> <!-- 몬스터 아이콘 -->
+                <div style="text-align:center; font-size:0.9rem; margin-bottom:5px;">Boss HP: <span id="monster-hp-text">100</span>%</div>
+                <div id="monster-img">👾</div> 
                 <div id="monster-damage" class="damage-effect hidden">-10</div>
+                <div id="monster-msg" class="hit-msg hidden">으악!</div>
+            </div>
+
+            <!-- VS 표시 -->
+            <div style="font-weight:bold; color:#ccc; margin: 10px 0;">VS</div>
+
+            <!-- 플레이어 영역 (NEW) -->
+            <div class="player-container">
+                <div id="player-img">😊</div>
+                <div style="text-align:center; font-size:0.9rem; margin-bottom:5px;">My HP: <span id="player-hp-text">100</span>%</div>
+                <div class="player-hp-bar"><div id="player-hp" style="width:100%"></div></div>
+                <div id="player-damage" class="damage-effect hidden">-20</div>
+                <div id="player-msg" class="hit-msg hidden">아파!</div>
             </div>
 
             <!-- 퀴즈 영역 -->
-            <div class="monster-quiz-area">
+            <div class="monster-quiz-area" style="margin-top:20px;">
                 <div class="question-box" id="mon-question" style="min-height:50px; font-size:1.3rem;">Apple</div>
                 <div class="option-grid" id="mon-options"></div>
             </div>
@@ -176,7 +187,6 @@
             <h2 id="game-result-title">Game Over!</h2>
             <h1 id="game-final-score" style="font-size:3rem; color:#ff9800;">0</h1>
             <div class="ranking-list"><h4>🏆 명예의 전당</h4><div id="ranking-container">Loading...</div></div>
-            <!-- 다시하기 버튼은 JS에서 상황에 맞게 설정 -->
             <button class="btn-secondary" id="btn-replay-game">다시 하기</button>
             <button class="btn-secondary" onclick="backToDashboard()">대시보드로</button>
         </div>
