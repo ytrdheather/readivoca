@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Readitude Voca</title>
+    <!-- 아이콘 불러오기 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 디자인 파일 연결 -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <!-- 1. 로그인 화면 -->
+        <div id="login-section">
+            <h2 style="color:#32bfb6"><i class="fa-solid fa-graduation-cap"></i> Readitude</h2>
+            <p>오늘의 학습을 시작해볼까요?</p>
+            <input type="text" id="username" placeholder="아이디 (학생: student1 / 쌤: admin)">
+            <input type="password" id="password" placeholder="비밀번호 (1234)">
+            <button class="btn-primary" onclick="login()">로그인</button>
+            <p id="message" style="color:red; font-size: 0.9rem; margin-top: 10px;"></p>
+        </div>
+
+        <!-- 2. 교재/유닛 선택 -->
+        <div id="selection-section" class="hidden">
+            <div style="text-align: right;">
+                <button onclick="logout()" style="background:none; border:none; color:#999; cursor:pointer;">로그아웃</button>
+            </div>
+            <h2 id="welcome-msg" style="color:#32bfb6">환영합니다!</h2>
+            <select id="book-select" onchange="loadUnits()">
+                <option value="">📚 교재 선택</option>
+            </select>
+            <select id="unit-select" disabled>
+                <option value="">📂 유닛 선택</option>
+            </select>
+            <button class="btn-primary" onclick="goToDashboard()">학습 대시보드로 이동 🚀</button>
+        </div>
+
+        <!-- 3. 학습 대시보드 -->
+        <div id="dashboard-section" class="hidden">
+            <h3 id="dash-unit-title" style="color:#555">Unit Name</h3>
+            <p style="font-size:0.9rem; color:#888;">4단계를 모두 완료하여 금메달을 획득하세요!</p>
+            
+            <div class="menu-grid">
+                <div class="menu-card" onclick="startFlashcard()">
+                    <i class="fa-solid fa-layer-group"></i> <h3>1. 단어 암기</h3> <p>플래시카드로 외우기</p>
+                </div>
+                <div class="menu-card" onclick="startSpelling()">
+                    <i class="fa-solid fa-keyboard"></i> <h3>2. 스펠링 학습</h3> <p>힌트 보고 타자 치기</p>
+                </div>
+                <div class="menu-card" onclick="startContextQuiz()">
+                    <i class="fa-solid fa-rotate"></i> <h3>3. 반복 훈련</h3> <p>유의어/예문 퀴즈</p>
+                </div>
+                <div class="menu-card" onclick="startTest()">
+                    <i class="fa-solid fa-file-signature"></i> <h3>4. 실전 테스트</h3> <p>최종 점검</p>
+                </div>
+            </div>
+            <!-- 게임존 버튼 -->
+            <button class="btn-game" onclick="showGameZone()"><i class="fa-solid fa-gamepad"></i> GAME ZONE (쉬는 시간)</button>
+            <button class="btn-secondary" onclick="goBackToSelection()">교재 다시 고르기</button>
+        </div>
+
+        <!-- 4. 플래시카드 화면 -->
+        <div id="flashcard-section" class="hidden">
+            <h3>단어 암기 (Flashcard)</h3>
+            <div class="card-container" onclick="flipCard()">
+                <div class="card" id="flashcard">
+                    <div class="card-face front"><span id="fc-en">Apple</span></div>
+                    <div class="card-face back">
+                        <button class="audio-btn" onclick="event.stopPropagation(); playAudio()">
+                            <i class="fa-solid fa-volume-high"></i>
+                        </button>
+                        <div class="meaning-text" id="fc-ko">사과</div>
+                        <div class="info-box" id="fc-ex"><span class="info-label">EXAMPLE</span><span id="fc-ex-text"></span></div>
+                        <div class="info-box" id="fc-syn"><span class="info-label">SYNONYMS</span><span id="fc-syn-text"></span></div>
+                        <div class="info-box" id="fc-ant"><span class="info-label">ANTONYMS</span><span id="fc-ant-text"></span></div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:center; gap:10px;">
+                <button class="btn-primary" style="width:120px" onclick="prevCard()">이전</button>
+                <button class="btn-primary" style="width:120px" onclick="nextCard()">다음 (Enter)</button>
+            </div>
+            <p style="font-size: 0.8rem; color: #999; margin-top: 10px;">Tip: Space로 뒤집고, Enter로 넘기세요!</p>
+            <button class="btn-secondary" onclick="backToDashboard()">대시보드로</button>
+        </div>
+
+        <!-- 5. 스펠링 학습 화면 -->
+        <div id="spelling-section" class="hidden">
+            <h3>스펠링 학습 (Typing)</h3>
+            <div class="score-board">점수: <span id="spell-score">0</span> / 100</div>
+            <div class="question-box" id="spell-meaning">사과</div>
+            <div class="hint-text" id="spell-hint">Hint: A _ _ _ e</div>
+            <input type="text" id="spell-input" placeholder="정답을 입력하세요" style="font-size:1.2rem; text-align:center;" autocomplete="off">
+            <button class="btn-primary" onclick="checkSpelling()">확인 (Enter)</button>
+            <p id="spell-feedback" style="height:20px; font-weight:bold;"></p>
+            <button class="btn-secondary" onclick="backToDashboard()">그만하기</button>
+        </div>
+
+        <!-- 5-1. 스펠링 결과 화면 -->
+        <div id="spelling-result-section" class="hidden">
+            <h3>스펠링 학습 완료! 🎉</h3>
+            <div style="font-size: 1.5rem; margin: 10px 0; color:#333;">
+                내 점수: <span id="spell-final-score" style="color:#32bfb6; font-weight:bold;">0</span>점
+            </div>
+            
+            <div id="spell-submit-box" class="submit-confirm-box">
+                <h4>📝 기록 제출 확인</h4>
+                <span id="spell-submit-msg" class="submit-msg"></span>
+                <button id="spell-submit-btn" class="btn-primary" onclick="submitCurrentRecord()">네! 제출할게요 ✅</button>
+                <button class="btn-secondary" onclick="startRetrySpelling()">아니오, 다시 연습할래요 🔄</button>
+            </div>
+
+            <div id="spell-wrong-list-area" class="hidden" style="margin-top:20px;">
+                <h4 style="color:#dc3545; margin-bottom:10px;">❌ 틀린 단어 리스트</h4>
+                <div id="spell-wrong-word-list" class="wrong-list-container"></div>
+            </div>
+            <button class="btn-secondary" onclick="backToDashboard()" style="margin-top:30px;">대시보드로 (제출 안 함)</button>
+        </div>
+
+        <!-- 6. 반복 훈련 화면 -->
+        <div id="quiz-section" class="hidden">
+            <h3>반복 훈련 (Context Quiz)</h3>
+            <div class="score-board" id="quiz-progress">1 / 50</div>
+            <div class="question-box" id="quiz-question" style="font-size:1.1rem; font-weight:normal;"></div>
+            <div class="hint-text" id="quiz-type-badge"></div>
+            <div class="option-grid" id="quiz-options"></div>
+            <button class="btn-secondary" onclick="backToDashboard()">그만하기</button>
+        </div>
+
+        <!-- 6-1. 반복 훈련 결과 화면 -->
+        <div id="quiz-result-section" class="hidden">
+            <h3>반복 훈련 완료! 🏆</h3>
+            <div style="font-size: 1.5rem; margin: 10px 0; color:#333;">
+                내 점수: <span id="quiz-final-score" style="color:#32bfb6; font-weight:bold;">0</span>점
+            </div>
+            
+            <div id="quiz-submit-box" class="submit-confirm-box">
+                <h4>📝 기록 제출 확인</h4>
+                <span id="quiz-submit-msg" class="submit-msg"></span>
+                <button id="quiz-submit-btn" class="btn-primary" onclick="submitCurrentRecord()">네! 제출할게요 ✅</button>
+                <button class="btn-secondary" onclick="startRetryQuiz()">아니오, 다시 연습할래요 🔄</button>
+            </div>
+
+            <div id="quiz-wrong-list-area" class="hidden" style="margin-top:20px;">
+                <h4 style="color:#dc3545; margin-bottom:10px;">❌ 틀린 문제 리스트</h4>
+                <div id="quiz-wrong-word-list" class="wrong-list-container"></div>
+            </div>
+            <button class="btn-secondary" onclick="backToDashboard()" style="margin-top:30px;">대시보드로 (제출 안 함)</button>
+        </div>
+
+        <!-- 7. 선생님 관리 페이지 -->
+        <div id="teacher-section" class="hidden">
+            <h2 style="color:#32bfb6">👨‍🏫 선생님 관리 모드</h2>
+            <select id="teacher-book-select" onchange="renderTeacherTable()"><option value="">교재 선택</option></select>
+            <table class="teacher-table">
+                <thead><tr><th>학생명</th><th>유닛</th><th>진행률</th><th>점수</th><th>완료일</th></tr></thead>
+                <tbody id="teacher-tbody"></tbody>
+            </table>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn-primary" onclick="printTestPaper('test')">📄 시험지 출력</button>
+                <button class="btn-primary" style="background-color:#ffc107; color:#333;" onclick="printTestPaper('workbook')">📘 워크북 출력</button>
+            </div>
+            <button class="btn-secondary" onclick="logout()">로그아웃</button>
+        </div>
+
+        <!-- 8. 게임존 메뉴 -->
+        <div id="game-menu-section" class="hidden">
+            <h2 style="color:#ff9800">🎮 GAME ZONE</h2>
+            <p>공부하느라 힘들었죠? 게임하면서 머리 식히세요!</p>
+            <div class="menu-grid">
+                <div class="menu-card" onclick="startMemoryGame()" style="border-color:#ff9800;">
+                    <i class="fa-solid fa-clone" style="color:#ff9800;"></i> <h3>카드 짝맞추기</h3> <p>영어-한글 짝꿍 찾기</p>
+                </div>
+                <div class="menu-card" onclick="startWordRain()" style="border-color:#2196f3;">
+                    <i class="fa-solid fa-cloud-rain" style="color:#2196f3;"></i> <h3>단어 산성비</h3> <p>타자 연습 게임</p>
+                </div>
+            </div>
+            <button class="btn-secondary" onclick="backToDashboard()">대시보드로 돌아가기</button>
+        </div>
+
+        <!-- 9. 카드 짝맞추기 게임 화면 -->
+        <div id="memory-game-section" class="hidden">
+            <h3 style="color:#ff9800">🃏 Memory Match</h3>
+            <div style="display:flex; justify-content:space-between; padding:0 20px;">
+                <span>Time: <b id="mem-time">60</b>s</span> <span>Score: <b id="mem-score">0</b></span>
+            </div>
+            <div class="memory-game-grid" id="memory-grid"></div>
+            <button class="btn-secondary" onclick="stopGame()">게임 종료</button>
+        </div>
+
+        <!-- 10. 단어 산성비 게임 화면 -->
+        <div id="word-rain-section" class="hidden">
+            <h3 style="color:#2196f3">🌧️ Word Rain</h3>
+            <div style="display:flex; justify-content:space-between; padding:0 20px;">
+                <span>Life: <b id="rain-life">❤️❤️❤️</b></span> <span>Score: <b id="rain-score">0</b></span>
+            </div>
+            <div id="rain-canvas-container"></div>
+            <div class="rain-input-area">
+                <input type="text" id="rain-input" placeholder="떨어지는 단어를 입력하세요!" autocomplete="off">
+            </div>
+            <button class="btn-secondary" onclick="stopGame()">게임 종료</button>
+        </div>
+
+        <!-- 11. 게임 결과 & 랭킹 -->
+        <div id="game-result-section" class="hidden">
+            <h2 id="game-result-title">Game Over!</h2>
+            <h1 id="game-final-score" style="font-size:3rem; color:#ff9800; margin:10px 0;">0</h1>
+            <p>최종 점수</p>
+            <div class="ranking-list">
+                <h4>🏆 명예의 전당 (Top 10)</h4>
+                <div id="ranking-container">Loading...</div>
+            </div>
+            <button class="btn-secondary" onclick="showGameZone()">다시 하기</button>
+        </div>
+    </div>
+
+    <!-- 인쇄 영역 -->
+    <div id="print-area" class="print-area">
+        <div class="print-header"><h1 id="print-title">Vocabulary Test</h1><p>Name: __________ Date: __________ Score: ______</p></div>
+        <table class="print-table"><tbody id="print-tbody"></tbody></table>
+    </div>
+
+    <!-- 기능 파일 연결 -->
+    <script src="script.js"></script>
+</body>
+</html>
