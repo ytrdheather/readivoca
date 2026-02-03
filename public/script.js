@@ -15,6 +15,9 @@ let gameTimer = null;
 let gameScore = 0;
 let rainWords = [];
 let rainInterval = null;
+let monsterHp = 100;
+let monsterWords = [];
+let monsterIndex = 0;
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -98,7 +101,7 @@ async function goToDashboard() {
     } catch(e) { alert('로드 실패'); }
 }
 
-// --- 기능 로직들 ---
+// --- 학습 기능 (1~4번) ---
 function startFlashcard() { showSection('flashcard-section'); currentIndex=0; loadFlashcard(0); }
 function loadFlashcard(idx) {
     const w=currentWords[idx]; document.getElementById('fc-en').innerText=w.english; document.getElementById('fc-ko').innerText=w.meaning;
@@ -134,11 +137,9 @@ function showSpellingResult() {
     document.getElementById('spell-final-score').innerText = score;
     const wrongText = wrongAnswers.map(w=>w.english).join(', ');
     pendingSubmission = { type:'spelling', score:score, wrongCount:wrongAnswers.length, wrongWordsText:wrongText };
-    
     const btn = document.getElementById('spell-submit-btn'); const msg = document.getElementById('spell-submit-msg');
     if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출 불가!"; msg.style.color="#dc3545"; }
     else { btn.disabled=false; btn.classList.remove('btn-disabled'); btn.innerText="네! 제출할게요 ✅"; msg.innerText="훌륭해요! 점수를 보낼까요?"; msg.style.color="#28a745"; }
-
     const div = document.getElementById('spell-wrong-word-list'); div.innerHTML='';
     if(wrongAnswers.length>0) { document.getElementById('spell-wrong-list-area').classList.remove('hidden'); wrongAnswers.forEach(w=>{ div.innerHTML+=`<div class="wrong-item"><span class="wrong-en">${w.english}</span><span class="wrong-ko">${w.meaning}</span></div>`; }); }
     else document.getElementById('spell-wrong-list-area').classList.add('hidden');
@@ -151,15 +152,9 @@ function maskWordInSentence(sentence, word) {
     const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const safeWord = escapeRegExp(word);
     const variations = [safeWord];
-    if (word.endsWith('y')) {
-        const root = word.slice(0, -1);
-        variations.push(escapeRegExp(root) + "ied"); variations.push(escapeRegExp(root) + "ies"); variations.push(escapeRegExp(word) + "ing"); 
-    } else if (word.endsWith('e')) {
-        const root = word.slice(0, -1);
-        variations.push(escapeRegExp(root) + "ing"); variations.push(escapeRegExp(word) + "d"); variations.push(escapeRegExp(word) + "s");   
-    } else {
-        variations.push(escapeRegExp(word) + "s"); variations.push(escapeRegExp(word) + "ed"); variations.push(escapeRegExp(word) + "ing");
-    }
+    if (word.endsWith('y')) { const root = word.slice(0, -1); variations.push(escapeRegExp(root) + "ied"); variations.push(escapeRegExp(root) + "ies"); variations.push(escapeRegExp(word) + "ing"); } 
+    else if (word.endsWith('e')) { const root = word.slice(0, -1); variations.push(escapeRegExp(root) + "ing"); variations.push(escapeRegExp(word) + "d"); variations.push(escapeRegExp(word) + "s"); } 
+    else { variations.push(escapeRegExp(word) + "s"); variations.push(escapeRegExp(word) + "ed"); variations.push(escapeRegExp(word) + "ing"); }
     const pattern = new RegExp(`\\b(${variations.join('|')})\\b`, 'gi');
     let masked = sentence.replace(pattern, "_______");
     if (masked === sentence) { masked = sentence.replace(new RegExp(safeWord, 'gi'), "_______"); }
@@ -171,7 +166,6 @@ function loadQuizQuestion() {
     else if(q.t==='synonym') { box.innerText=w.synonyms; badge.innerText="유의어는?"; }
     else if(q.t==='antonym') { box.innerText=w.antonyms; badge.innerText="반의어는?"; }
     else { box.innerText=w.meaning; badge.innerText="이 뜻의 영어 단어는?"; }
-    
     const opts=[w]; while(opts.length<4) { const r=currentWords[Math.floor(Math.random()*currentWords.length)]; if(!opts.some(o=>o.id===r.id)) opts.push(r); } shuffleArray(opts);
     const grid=document.getElementById('quiz-options'); grid.innerHTML='';
     opts.forEach(o=>{ const b=document.createElement('button'); b.className='option-btn'; b.innerText=o.english; 
@@ -188,18 +182,16 @@ function showQuizResult() {
     document.getElementById('quiz-final-score').innerText = score;
     const wrongText = quizWrongAnswers.map(w=>w.english).join(', ');
     pendingSubmission = { type:'quiz', score:score, wrongCount:quizWrongAnswers.length, wrongWordsText:wrongText };
-    
     const btn = document.getElementById('quiz-submit-btn'); const msg = document.getElementById('quiz-submit-msg');
     if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출 불가!"; msg.style.color="#dc3545"; }
     else { btn.disabled=false; btn.classList.remove('btn-disabled'); btn.innerText="제출하기 ✅"; msg.innerText="점수를 보낼까요?"; msg.style.color="#28a745"; }
-
     const div = document.getElementById('quiz-wrong-word-list'); div.innerHTML='';
     if(quizWrongAnswers.length>0) { document.getElementById('quiz-wrong-list-area').classList.remove('hidden'); quizWrongAnswers.forEach(w=>{ div.innerHTML+=`<div class="wrong-item"><span class="wrong-en">${w.english}</span><span class="wrong-ko">${w.meaning}</span></div>`; }); }
     else document.getElementById('quiz-wrong-list-area').classList.add('hidden');
 }
 function startRetryQuiz() { if(quizWrongAnswers.length===0) return startContextQuiz(); quizQueue=[]; quizWrongAnswers.forEach(w=>quizQueue.push({w,t:'meaning'})); quizWrongAnswers=[]; shuffleArray(quizQueue); currentIndex=0; alert("틀린 문제 재도전!"); showSection('quiz-section'); loadQuizQuestion(); }
 
-// 게임 1: 카드 짝맞추기
+// --- 5. 카드 짝맞추기 ---
 let memCards=[], flippedCards=[], matchedCount=0;
 function startMemoryGame() {
     if(currentWords.length<8) return alert("단어가 너무 적어요!"); showSection('memory-game-section'); gameScore=0; matchedCount=0; document.getElementById('mem-score').innerText=0; document.getElementById('mem-time').innerText=60;
@@ -210,14 +202,18 @@ function startMemoryGame() {
     memCards.forEach((c,i)=>{ const el=document.createElement('div'); el.className='memory-card'; el.dataset.idx=i; el.innerText='?'; el.onclick=()=>flipMemCard(el,c); grid.appendChild(el); });
     if(gameTimer) clearInterval(gameTimer); let t=60; gameTimer=setInterval(()=>{ t--; document.getElementById('mem-time').innerText=t; if(t<=0) finishGame('game_memory',gameScore); },1000);
 }
-function flipMemCard(el,c) { if(el.classList.contains('flipped')||flippedCards.length>=2) return; el.classList.add('flipped'); el.innerText=c.t; el.style.background='white'; el.style.color='#333'; el.style.transform='rotateY(180deg)'; flippedCards.push({el,c}); if(flippedCards.length===2) checkMatch(); }
+function flipMemCard(el,c) { 
+    if(el.classList.contains('flipped')||flippedCards.length>=2) return; 
+    el.classList.add('flipped'); el.innerText=c.t; 
+    flippedCards.push({el,c}); if(flippedCards.length===2) checkMatch(); 
+}
 function checkMatch() {
     const [c1,c2]=flippedCards;
     if(c1.c.id===c2.c.id) { gameScore+=100; document.getElementById('mem-score').innerText=gameScore; c1.el.classList.add('matched'); c2.el.classList.add('matched'); matchedCount++; flippedCards=[]; if(matchedCount===8) finishGame('game_memory',gameScore+500); }
-    else { setTimeout(()=>{ c1.el.classList.remove('flipped'); c1.el.innerText='?'; c1.el.style.background='#32bfb6'; c1.el.style.color='white'; c1.el.style.transform='rotateY(0deg)'; c2.el.classList.remove('flipped'); c2.el.innerText='?'; c2.el.style.background='#32bfb6'; c2.el.style.color='white'; c2.el.style.transform='rotateY(0deg)'; flippedCards=[]; },1000); }
+    else { setTimeout(()=>{ c1.el.classList.remove('flipped'); c1.el.innerText='?'; c2.el.classList.remove('flipped'); c2.el.innerText='?'; flippedCards=[]; },1000); }
 }
 
-// 게임 2: 단어 산성비 (수정됨: 멈춤 현상 수정)
+// --- 6. 단어 산성비 (수정됨: 맞추면 뜻 보여주기) ---
 function startWordRain() {
     showSection('word-rain-section'); gameScore=0; rainWords=[]; let life=3; document.getElementById('rain-score').innerText=0; document.getElementById('rain-life').innerText="❤️❤️❤️";
     const cont=document.getElementById('rain-canvas-container'); cont.innerHTML=''; document.getElementById('rain-input').value=''; document.getElementById('rain-input').focus();
@@ -232,7 +228,8 @@ function startWordRain() {
             const w=currentWords[Math.floor(Math.random()*currentWords.length)]; 
             const el=document.createElement('div'); el.className='rain-word'; el.innerText=w.english; 
             el.style.left=Math.random()*(cont.clientWidth-80)+'px'; el.style.top='0px'; cont.appendChild(el); 
-            rainWords.push({el,w:w.english,top:0}); 
+            // 뜻도 같이 저장
+            rainWords.push({el, english: w.english, meaning: w.meaning, top:0}); 
         }
         // 2. 단어 이동
         rainWords.forEach((item,i)=>{ 
@@ -244,20 +241,24 @@ function startWordRain() {
         });
     },100);
 
-    // 3. 입력 처리 (수정됨: 맞추면 즉시 제거)
+    // 3. 입력 처리
     document.getElementById('rain-input').onkeydown=(e)=>{ 
         if(e.key==='Enter'){ 
             const v=e.target.value.trim(); 
-            const idx=rainWords.findIndex(x=>x.w.toLowerCase()===v.toLowerCase()); 
+            const idx=rainWords.findIndex(x=>x.english.toLowerCase()===v.toLowerCase()); 
             if(idx>-1){ 
                 const target = rainWords[idx];
                 // 리스트에서 먼저 제거 (버그 방지)
                 rainWords.splice(idx, 1);
                 
-                // 시각 효과 후 DOM 제거
-                target.el.style.color='yellow'; 
-                target.el.style.transform='scale(1.5)';
-                setTimeout(()=>target.el.remove(), 200); 
+                // ★ 맞추면 뜻으로 변신!
+                target.el.innerText = target.meaning; // 영어 -> 한글 뜻
+                target.el.style.color='#ffeb3b';      // 노란색으로 강조
+                target.el.style.transform='scale(1.3)';
+                target.el.style.textShadow='0 0 10px #ff9800'; // 발광 효과
+                
+                // 0.5초 뒤에 사라짐 (읽을 시간 줌)
+                setTimeout(()=>target.el.remove(), 500); 
                 
                 gameScore+=50; 
                 document.getElementById('rain-score').innerText=gameScore; 
@@ -267,14 +268,66 @@ function startWordRain() {
     };
 }
 
+// --- 7. 단어 몬스터 ---
+function startMonsterGame() {
+    if(currentWords.length<10) return alert("단어가 10개 이상 필요해요!");
+    showSection('monster-game-section');
+    gameScore=0; monsterHp=100; monsterIndex=0;
+    document.getElementById('monster-hp').style.width='100%';
+    document.getElementById('monster-hp-text').innerText='100';
+    // 몬스터용 랜덤 10단어
+    monsterWords = [...currentWords].sort(()=>0.5-Math.random()).slice(0,10);
+    loadMonsterQuiz();
+}
+function loadMonsterQuiz() {
+    const w = monsterWords[monsterIndex];
+    document.getElementById('mon-question').innerText = w.meaning; // 뜻 보여줌
+    
+    // 보기 생성
+    const opts=[w]; while(opts.length<4) { const r=currentWords[Math.floor(Math.random()*currentWords.length)]; if(!opts.some(o=>o.id===r.id)) opts.push(r); } shuffleArray(opts);
+    const grid=document.getElementById('mon-options'); grid.innerHTML='';
+    opts.forEach(o=>{ 
+        const b=document.createElement('button'); b.className='option-btn'; b.innerText=o.english; 
+        b.onclick=()=>{ 
+            if(o.id===w.id) { 
+                b.classList.add('correct');
+                hitMonster();
+                setTimeout(()=>{ 
+                    monsterIndex++;
+                    if(monsterIndex < 10) loadMonsterQuiz();
+                    else finishGame('game_monster', gameScore + 1000); 
+                }, 800);
+            } else { b.classList.add('wrong'); }
+        }; 
+        grid.appendChild(b); 
+    });
+}
+function hitMonster() {
+    monsterHp -= 10;
+    document.getElementById('monster-hp').style.width = monsterHp+'%';
+    document.getElementById('monster-hp-text').innerText = monsterHp;
+    gameScore += 100;
+    
+    const dmg = document.getElementById('monster-damage');
+    dmg.classList.remove('hidden');
+    dmg.innerText = "-10";
+    setTimeout(()=>dmg.classList.add('hidden'), 500);
+}
+
+// --- 공통 게임 종료 ---
 async function finishGame(type, score) {
     stopGame(); showSection('game-result-section'); document.getElementById('game-final-score').innerText=score;
-    await saveRecord(type, score, 0, ''); // 게임 점수 저장
+    // 다시 하기 버튼 설정
+    const replayBtn = document.getElementById('btn-replay-game');
+    if(type==='game_memory') replayBtn.onclick = startMemoryGame;
+    else if(type==='game_rain') replayBtn.onclick = startWordRain;
+    else if(type==='game_monster') replayBtn.onclick = startMonsterGame;
+
+    await saveRecord(type, score, 0, ''); 
     const res = await fetch(`${API_URL}/rankings?game_type=${type}`); const ranks=await res.json();
     const div=document.getElementById('ranking-container'); div.innerHTML='';
     ranks.forEach((r,i)=>{ div.innerHTML+=`<div class="ranking-item"><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':''} ${i+1}. ${r.who}</span><b>${r.score}</b></div>`; });
 }
-
 function stopGame() { 
     if(gameTimer) clearInterval(gameTimer); 
     if(rainInterval) clearInterval(rainInterval); 
@@ -285,7 +338,7 @@ function initTeacherView() { loadBooks(); }
 function renderTeacherTable() {}
 function printTestPaper() {}
 
-function showGameZone() { showSection('game-menu-section'); }
+function showGameZone() { /* 이제 안 씀 */ }
 function showSection(id) { document.querySelectorAll('.container > div').forEach(d=>d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 
 // 수정된 뒤로가기 버튼 기능 (게임 종료 후 이동)
