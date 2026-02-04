@@ -9,6 +9,9 @@
 </head>
 <body>
 
+    <!-- 효과음 오디오 (정답 소리) -->
+    <audio id="sfx-correct" src="https://actions.google.com/sounds/v1/cartoon/pop.ogg"></audio>
+
     <div class="container">
         <!-- 1. 로그인 -->
         <div id="login-section">
@@ -81,12 +84,9 @@
             </div>
             <div style="display:flex; justify-content:center; gap:10px;">
                 <button class="btn-primary" style="width:120px" onclick="prevCard()">이전</button>
-                <button class="btn-primary" style="width:120px" onclick="nextCard()">다음 (Enter)</button>
+                <button class="btn-primary" style="width:120px" onclick="nextCard()">다음</button>
             </div>
-            <!-- 단축키 안내 문구 복구 -->
-            <p style="font-size: 0.9rem; color: #666; margin-top: 15px;">
-                💡 Tip: <b>Space</b>로 뒤집고, <b>Enter</b>로 넘기세요!
-            </p>
+            <p style="font-size: 0.8rem; color: #999; margin-top: 15px;">💡 Tip: <b>Space</b>로 뒤집고, <b>Enter</b>로 넘기세요!</p>
             <button class="btn-primary" style="background-color:#6c757d; margin-top:10px;" onclick="finishFlashcard()">암기 완료 (다음 단계로!)</button>
         </div>
 
@@ -118,11 +118,16 @@
             <button class="btn-secondary" onclick="backToDashboard()">대시보드로</button>
         </div>
 
-        <!-- 6. 반복 훈련 -->
+        <!-- 6. 반복 훈련 (업데이트: 박스 디자인 적용) -->
         <div id="quiz-section" class="hidden">
             <div class="score-board" id="quiz-progress">1 / 50</div>
-            <div class="question-box" id="quiz-question"></div>
-            <div class="hint-text" id="quiz-type-badge"></div>
+            
+            <!-- 문제 박스 (디자인 개선됨) -->
+            <div class="quiz-question-container">
+                <div class="hint-text" id="quiz-type-badge" style="color:#32bfb6; font-weight:bold; margin-bottom:10px;"></div>
+                <div class="question-box large-text" id="quiz-question"></div>
+            </div>
+
             <div class="option-grid" id="quiz-options"></div>
             <button class="btn-secondary" onclick="stopStudyAndExit()">중단하기</button>
         </div>
@@ -211,9 +216,40 @@
             <button class="btn-secondary" id="btn-replay-game">다시 하기</button>
         </div>
 
+        <!-- 8. 실전 테스트 화면 -->
+        <div id="test-section" class="hidden">
+            <h3>실전 테스트 (Final Test)</h3>
+            <div class="score-board">진행: <span id="test-progress">1 / 20</span></div>
+            <div class="question-box large-text" id="test-question">사과</div>
+            <p style="color:#888; font-size:0.9rem;">(힌트 없음! 정확한 스펠링을 입력하세요)</p>
+            <input type="text" id="test-input" placeholder="정답 입력" style="font-size:1.2rem; text-align:center;" autocomplete="off">
+            <button class="btn-primary" onclick="checkTestAnswer()">제출 (Enter)</button>
+            <p id="test-feedback" style="height:20px; font-weight:bold;"></p>
+            <button class="btn-secondary" onclick="stopStudyAndExit()">중단하기</button>
+        </div>
+
+        <!-- 8-1. 실전 테스트 결과 -->
+        <div id="test-result-section" class="hidden">
+            <h3>테스트 종료! 🏁</h3>
+            <div style="font-size:1.5rem; margin: 10px 0;">
+                내 점수: <span id="test-final-score" style="color:#32bfb6; font-weight:bold;">0</span>점
+            </div>
+            <div id="test-submit-box" class="submit-confirm-box">
+                <h4>📝 기록 제출 확인</h4>
+                <span id="test-submit-msg" class="submit-msg"></span>
+                <button id="test-submit-btn" class="btn-primary" onclick="submitCurrentRecord()">네! 제출할게요 ✅</button>
+                <button class="btn-secondary" onclick="startRetryTest()">틀린 문제 재시험 🔄</button>
+            </div>
+            <div id="test-wrong-list-area" class="hidden" style="margin-top:20px;">
+                <h4 style="color:#dc3545; margin-bottom:10px;">❌ 틀린 단어 리스트</h4>
+                <div id="test-wrong-word-list" class="wrong-list-container"></div>
+            </div>
+            <button class="btn-secondary" onclick="backToDashboard()" style="margin-top:30px;">대시보드로 (제출 안 함)</button>
+        </div>
+
     </div>
     
-    <!-- 인쇄 영역은 평소에 안 보이게 처리 -->
+    <!-- 인쇄 영역 -->
     <div id="print-area" class="print-area">
         <div class="print-header"><h1 id="print-title">Vocabulary Test</h1><p>Name: __________ Date: __________ Score: ______</p></div>
         <table class="print-table"><tbody id="print-tbody"></tbody></table>
