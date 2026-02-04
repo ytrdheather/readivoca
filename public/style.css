@@ -1,4 +1,3 @@
-/* ... (이전 스타일 유지) ... */
 /* --- 공통 스타일 --- */
 body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; justify-content: center; min-height: 100vh; }
 .container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 700px; text-align: center; margin-top: 50px; margin-bottom: 50px; }
@@ -9,25 +8,38 @@ h2 { color: #333; margin-bottom: 1rem; }
 .btn-primary:hover { background-color: #289f97; }
 .btn-secondary { background-color: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 15px; }
 .btn-disabled { background-color: #ccc !important; cursor: not-allowed; }
-.btn-game { background-color: #ff9800; color: white; border: none; padding: 15px; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 1.1rem; width: 100%; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 0 #e65100; transition: transform 0.1s; }
-.btn-game:active { transform: translateY(4px); box-shadow: none; }
 
 input, select { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
 .hidden { display: none !important; }
 
-/* --- 학습 메뉴 --- */
+/* --- 학습 메뉴 & 잠금 스타일 --- */
 .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
 .menu-card { 
-    background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 20px; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 12px; padding: 20px; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative;
 }
 .menu-card:hover { border-color: #32bfb6; background: #e6f7f6; transform: translateY(-3px); }
 .menu-card i { font-size: 2rem; color: #32bfb6; margin-bottom: 10px; }
 .menu-card h3 { margin: 0; font-size: 1.1rem; color: #333; }
 
-.game-card i { color: #ff9800; }
-.game-card:hover { border-color: #ff9800; background: #fff3e0; }
+/* 잠긴 상태 */
+.menu-card.locked {
+    background-color: #eee;
+    border-color: #ddd;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+.menu-card.locked:hover { transform: none; background-color: #eee; border-color: #ddd; }
+.menu-card.locked i { color: #999; }
 
-/* --- 🃏 카드 짝맞추기 --- */
+/* 상태 아이콘 (자물쇠 등) */
+.status-icon {
+    position: absolute; top: 10px; right: 10px; font-size: 1.2rem; color: #ccc;
+}
+.menu-card.unlocked .status-icon { color: #32bfb6; }
+.menu-card.locked .status-icon { color: #999; }
+
+/* --- 게임 스타일들 --- */
 .memory-game-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
 .memory-card { 
     background-color: #32bfb6; border-radius: 8px; height: 80px; cursor: pointer; 
@@ -43,48 +55,26 @@ input, select { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; b
 }
 .memory-card.matched { visibility: hidden; opacity: 0; transition: opacity 0.5s; }
 
-/* --- 🌧️ 단어 산성비 --- */
 #rain-canvas-container { position: relative; width: 100%; height: 400px; background: #222; border-radius: 10px; overflow: hidden; margin-top: 20px; }
 .rain-word { position: absolute; color: white; font-weight: bold; font-size: 1.2rem; white-space: nowrap; text-shadow: 0 0 5px #000; }
 .rain-input-area { margin-top: 10px; display: flex; gap: 10px; }
 #rain-input { flex: 1; }
 
-/* --- 🐲 단어 몬스터 (업데이트됨) --- */
 .monster-container { margin: 10px 0; position: relative; }
 .player-container { margin: 10px 0; position: relative; }
-
 #monster-img { font-size: 5rem; transition: transform 0.1s; }
 #player-img { font-size: 4rem; transition: transform 0.1s; }
-
-/* 타격 애니메이션 (흔들림) */
 .shake-anim { animation: shake 0.5s; }
-@keyframes shake {
-  0% { transform: translate(1px, 1px) rotate(0deg); }
-  10% { transform: translate(-1px, -2px) rotate(-1deg); }
-  20% { transform: translate(-3px, 0px) rotate(1deg); }
-  30% { transform: translate(3px, 2px) rotate(0deg); }
-  40% { transform: translate(1px, -1px) rotate(1deg); }
-  50% { transform: translate(-1px, 2px) rotate(-1deg); }
-  60% { transform: translate(-3px, 1px) rotate(0deg); }
-  70% { transform: translate(3px, 1px) rotate(-1deg); }
-  80% { transform: translate(-1px, -1px) rotate(1deg); }
-  90% { transform: translate(1px, 2px) rotate(0deg); }
-  100% { transform: translate(1px, -2px) rotate(-1deg); }
-}
-
-.monster-hp-bar { width: 100%; height: 15px; background: #ddd; border-radius: 10px; overflow: hidden; }
+@keyframes shake { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(-5px, 5px); } 75% { transform: translate(5px, -5px); } }
+.monster-hp-bar, .player-hp-bar { width: 100%; height: 15px; background: #ddd; border-radius: 10px; overflow: hidden; }
 #monster-hp { height: 100%; background: #dc3545; transition: width 0.3s; }
-
-.player-hp-bar { width: 100%; height: 15px; background: #ddd; border-radius: 10px; overflow: hidden; }
 #player-hp { height: 100%; background: #28a745; transition: width 0.3s; }
-
 .damage-effect { position: absolute; top: 0; left: 50%; transform: translateX(-50%); color: red; font-weight: bold; font-size: 2rem; animation: floatUp 0.8s forwards; text-shadow: 2px 2px 0px white; z-index: 20; }
 .hit-msg { position: absolute; top: 20px; right: 10px; background: white; padding: 5px 10px; border-radius: 10px; border: 2px solid #333; font-weight: bold; animation: popIn 0.3s; z-index: 15; }
-
 @keyframes floatUp { from { top: 30px; opacity: 1; } to { top: -50px; opacity: 0; } }
 @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
 
-/* 기타 학습 스타일 */
+/* 학습 화면 스타일 */
 .card-container { perspective: 1000px; width: 100%; height: 600px; margin-bottom: 15px; cursor: pointer; }
 .card { width: 100%; height: 100%; position: relative; transition: transform 0.6s; transform-style: preserve-3d; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 .card.flipped { transform: rotateY(180deg); }
