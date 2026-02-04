@@ -26,59 +26,39 @@
             <button class="btn-primary" onclick="goToDashboard()">학습 대시보드로 이동 🚀</button>
         </div>
 
-        <!-- 3. 대시보드 (순서 변경 & 잠금 기능 적용) -->
+        <!-- 3. 대시보드 -->
         <div id="dashboard-section" class="hidden">
             <h3 id="dash-unit-title">Unit Name</h3>
             <p style="font-size:0.9rem; color:#888;">순서대로 미션을 클리어하세요!</p>
             
             <div class="menu-grid">
-                <!-- 1단계: 암기 -->
                 <div class="menu-card" id="menu-1" onclick="tryStart(1, startFlashcard)">
                     <div class="status-icon"><i class="fa-solid fa-lock-open"></i></div>
-                    <i class="fa-solid fa-layer-group"></i>
-                    <h3>1. 단어 암기</h3>
+                    <i class="fa-solid fa-layer-group"></i><h3>1. 단어 암기</h3>
                 </div>
-                
-                <!-- 2단계: 카드 뒤집기 (게임) -->
                 <div class="menu-card locked" id="menu-2" onclick="tryStart(2, startMemoryGame)">
                     <div class="status-icon"><i class="fa-solid fa-lock"></i></div>
-                    <i class="fa-solid fa-clone" style="color:#ff9800"></i>
-                    <h3>2. 카드 뒤집기</h3>
+                    <i class="fa-solid fa-clone" style="color:#ff9800"></i><h3>2. 카드 뒤집기</h3>
                 </div>
-
-                <!-- 3단계: 반복 훈련 -->
                 <div class="menu-card locked" id="menu-3" onclick="tryStart(3, startContextQuiz)">
                     <div class="status-icon"><i class="fa-solid fa-lock"></i></div>
-                    <i class="fa-solid fa-rotate"></i>
-                    <h3>3. 반복 훈련</h3>
+                    <i class="fa-solid fa-rotate"></i><h3>3. 반복 훈련</h3>
                 </div>
-
-                <!-- 4단계: 단어 산성비 (게임) -->
                 <div class="menu-card locked" id="menu-4" onclick="tryStart(4, startWordRain)">
                     <div class="status-icon"><i class="fa-solid fa-lock"></i></div>
-                    <i class="fa-solid fa-cloud-rain" style="color:#2196f3"></i>
-                    <h3>4. 단어 산성비</h3>
+                    <i class="fa-solid fa-cloud-rain" style="color:#2196f3"></i><h3>4. 단어 산성비</h3>
                 </div>
-
-                <!-- 5단계: 스펠링 -->
                 <div class="menu-card locked" id="menu-5" onclick="tryStart(5, startSpelling)">
                     <div class="status-icon"><i class="fa-solid fa-lock"></i></div>
-                    <i class="fa-solid fa-keyboard"></i>
-                    <h3>5. 스펠링</h3>
+                    <i class="fa-solid fa-keyboard"></i><h3>5. 스펠링</h3>
                 </div>
-
-                <!-- 6단계: 단어 몬스터 (게임) -->
                 <div class="menu-card locked" id="menu-6" onclick="tryStart(6, startMonsterGame)">
                     <div class="status-icon"><i class="fa-solid fa-lock"></i></div>
-                    <i class="fa-solid fa-dragon" style="color:#e91e63"></i>
-                    <h3>6. 단어 몬스터</h3>
+                    <i class="fa-solid fa-dragon" style="color:#e91e63"></i><h3>6. 단어 몬스터</h3>
                 </div>
-
-                <!-- 7단계: 테스트 -->
                 <div class="menu-card locked" id="menu-7" onclick="tryStart(7, startTest)">
                     <div class="status-icon"><i class="fa-solid fa-lock"></i></div>
-                    <i class="fa-solid fa-file-signature"></i>
-                    <h3>7. 실전 테스트</h3>
+                    <i class="fa-solid fa-file-signature"></i><h3>7. 실전 테스트</h3>
                 </div>
             </div>
             
@@ -101,10 +81,13 @@
             </div>
             <div style="display:flex; justify-content:center; gap:10px;">
                 <button class="btn-primary" style="width:120px" onclick="prevCard()">이전</button>
-                <button class="btn-primary" style="width:120px" onclick="nextCard()">다음</button>
+                <button class="btn-primary" style="width:120px" onclick="nextCard()">다음 (Enter)</button>
             </div>
-            <!-- 암기는 '완료' 버튼을 눌러야 다음 단계 해금 -->
-            <button class="btn-primary" style="background-color:#6c757d; margin-top:20px;" onclick="finishFlashcard()">암기 완료 (다음 단계로!)</button>
+            <!-- 단축키 안내 문구 복구 -->
+            <p style="font-size: 0.9rem; color: #666; margin-top: 15px;">
+                💡 Tip: <b>Space</b>로 뒤집고, <b>Enter</b>로 넘기세요!
+            </p>
+            <button class="btn-primary" style="background-color:#6c757d; margin-top:10px;" onclick="finishFlashcard()">암기 완료 (다음 단계로!)</button>
         </div>
 
         <!-- 5. 스펠링 -->
@@ -230,7 +213,7 @@
 
     </div>
     
-    <!-- 인쇄 영역 -->
+    <!-- 인쇄 영역은 평소에 안 보이게 처리 -->
     <div id="print-area" class="print-area">
         <div class="print-header"><h1 id="print-title">Vocabulary Test</h1><p>Name: __________ Date: __________ Score: ______</p></div>
         <table class="print-table"><tbody id="print-tbody"></tbody></table>

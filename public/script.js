@@ -86,7 +86,14 @@ function tryStart(stage, startFunction) {
         alert(`🔒 이전 단계를 먼저 완료해야 합니다!\n(현재 ${currentUnlockStage}단계 진행 중)`);
         return;
     }
-    isStudyActive = true; // 딴짓 방지 시작
+    
+    // ★ 1단계(암기)는 딴짓 방지 안 함, 나머지 단계는 함
+    if (stage === 1) {
+        isStudyActive = false;
+    } else {
+        isStudyActive = true; 
+    }
+    
     startFunction();
 }
 
@@ -224,7 +231,7 @@ function showQuizResult() {
     const wrongText = quizWrongAnswers.map(w=>w.english).join(', ');
     pendingSubmission = { type:'quiz', score:score, wrongCount:quizWrongAnswers.length, wrongWordsText:wrongText };
     const btn = document.getElementById('quiz-submit-btn'); const msg = document.getElementById('quiz-submit-msg');
-    if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출 불가!"; msg.style.color="#dc3545"; } else { btn.disabled=false; btn.classList.remove('btn-disabled'); btn.innerText="네! 제출할게요 ✅"; msg.innerText="훌륭해요! 점수를 보낼까요?"; msg.style.color="#28a745"; }
+    if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출 불가!"; msg.style.color="#dc3545"; } else { btn.disabled=false; btn.classList.remove('btn-disabled'); btn.innerText="제출하기 ✅"; msg.innerText="점수를 보낼까요?"; msg.style.color="#28a745"; }
     const div = document.getElementById('quiz-wrong-word-list'); div.innerHTML='';
     if(quizWrongAnswers.length>0) { document.getElementById('quiz-wrong-list-area').classList.remove('hidden'); quizWrongAnswers.forEach(w=>{ div.innerHTML+=`<div class="wrong-item"><span class="wrong-en">${w.english}</span><span class="wrong-ko">${w.meaning}</span></div>`; }); } else document.getElementById('quiz-wrong-list-area').classList.add('hidden');
 }
@@ -339,3 +346,13 @@ function goBackToSelection() { showSection('selection-section'); }
 
 function addEnterListener(id, action) { const el=document.getElementById(id); if(el) el.addEventListener('keydown',e=>{if(e.key==='Enter')action();}); }
 addEnterListener('spell-input', checkSpelling); addEnterListener('password', login); addEnterListener('username', login);
+// 단어 암기 단축키 이벤트 리스너 추가
+document.addEventListener('keydown', function(event) {
+    const flashSection = document.getElementById('flashcard-section');
+    if (!flashSection.classList.contains('hidden')) {
+        if (event.code === 'Space') { event.preventDefault(); flipCard(); }
+        if (event.code === 'Enter') { event.preventDefault(); nextCard(); }
+        if (event.code === 'ArrowLeft') prevCard();
+        if (event.code === 'ArrowRight') nextCard();
+    }
+});
