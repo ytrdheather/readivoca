@@ -143,7 +143,7 @@ function submitCurrentRecord() {
     }
 }
 
-async function loadBooks() { /* ... 기존 로직 ... */
+async function loadBooks() {
     try {
         const res = await fetch(`${API_URL}/books`); const data = await res.json();
         const s = document.getElementById('book-select'); s.innerHTML='<option value="">📚 교재 선택</option>';
@@ -180,16 +180,70 @@ async function goToDashboard() {
 
 // 1. 암기 (완료 버튼 누르면 해금)
 function startFlashcard() { showSection('flashcard-section'); currentIndex=0; loadFlashcard(0); }
+
+// ★ [수정됨] 예문, 유의어, 반의어 클릭 시 읽어주기 추가
 function loadFlashcard(idx) {
-    const w=currentWords[idx]; document.getElementById('fc-en').innerText=w.english; document.getElementById('fc-ko').innerText=w.meaning;
-    const ex=document.getElementById('fc-ex'); if(w.example){ex.style.display='block';document.getElementById('fc-ex-text').innerText=w.example;}else ex.style.display='none';
-    const syn=document.getElementById('fc-syn'); if(w.synonyms){syn.style.display='block';document.getElementById('fc-syn-text').innerText=w.synonyms;}else syn.style.display='none';
-    const ant=document.getElementById('fc-ant'); if(w.antonyms){ant.style.display='block';document.getElementById('fc-ant-text').innerText=w.antonyms;}else ant.style.display='none';
-    document.getElementById('flashcard').classList.remove('flipped'); isFlipped=false;
+    const w = currentWords[idx]; 
+    document.getElementById('fc-en').innerText = w.english; 
+    document.getElementById('fc-ko').innerText = w.meaning;
+    
+    const exBox = document.getElementById('fc-ex'); 
+    const exText = document.getElementById('fc-ex-text');
+    if (w.example) {
+        exBox.style.display = 'block';
+        exText.innerText = w.example;
+        // 클릭 시 읽기 (카드 뒤집기 방지)
+        exText.onclick = (e) => { e.stopPropagation(); playAudio(w.example); };
+        exText.style.cursor = 'pointer';
+        exText.title = "클릭해서 예문 듣기";
+    } else exBox.style.display = 'none';
+
+    const synBox = document.getElementById('fc-syn'); 
+    const synText = document.getElementById('fc-syn-text');
+    if (w.synonyms) {
+        synBox.style.display = 'block';
+        synText.innerText = w.synonyms;
+        // 클릭 시 읽기
+        synText.onclick = (e) => { e.stopPropagation(); playAudio(w.synonyms); };
+        synText.style.cursor = 'pointer';
+        synText.title = "클릭해서 듣기";
+    } else synBox.style.display = 'none';
+
+    const antBox = document.getElementById('fc-ant'); 
+    const antText = document.getElementById('fc-ant-text');
+    if (w.antonyms) {
+        antBox.style.display = 'block';
+        antText.innerText = w.antonyms;
+        // 클릭 시 읽기
+        antText.onclick = (e) => { e.stopPropagation(); playAudio(w.antonyms); };
+        antText.style.cursor = 'pointer';
+        antText.title = "클릭해서 듣기";
+    } else antBox.style.display = 'none';
+
+    document.getElementById('flashcard').classList.remove('flipped'); 
+    isFlipped = false;
 }
-let isFlipped=false;
-function flipCard() { document.getElementById('flashcard').classList.toggle('flipped'); isFlipped=!isFlipped; if(isFlipped) playAudio(); }
-function playAudio() { if('speechSynthesis' in window){ window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(currentWords[currentIndex].english); u.lang='en-US'; u.rate=0.8; window.speechSynthesis.speak(u); } }
+
+let isFlipped = false;
+function flipCard() { 
+    document.getElementById('flashcard').classList.toggle('flipped'); 
+    isFlipped = !isFlipped; 
+    if (isFlipped) playAudio(); // 뒤집으면 기본 단어 읽기
+}
+
+// ★ [수정됨] 텍스트를 인자로 받아 읽어주는 기능 추가
+function playAudio(text) { 
+    if ('speechSynthesis' in window) { 
+        window.speechSynthesis.cancel(); 
+        // 텍스트가 없으면 현재 단어, 있으면 그 텍스트 읽기
+        const content = text || currentWords[currentIndex].english;
+        const u = new SpeechSynthesisUtterance(content); 
+        u.lang = 'en-US'; 
+        u.rate = 0.8; 
+        window.speechSynthesis.speak(u); 
+    } 
+}
+
 function nextCard() { if(currentIndex<currentWords.length-1) loadFlashcard(++currentIndex); else alert("마지막입니다! '암기 완료' 버튼을 눌러주세요."); }
 function prevCard() { if(currentIndex>0) loadFlashcard(--currentIndex); }
 function finishFlashcard() { unlockNextStep(); } // 1단계 완료 처리
@@ -197,7 +251,15 @@ function finishFlashcard() { unlockNextStep(); } // 1단계 완료 처리
 // 2. 카드 짝맞추기
 let memCards=[], flippedCards=[], matchedCount=0;
 function startMemoryGame() {
-    if(currentWords.length<8) return alert("단어가 너무 적어요!"); showSection('memory-game-section'); gameScore=0; matchedCount=0; document.getElementById('mem-score').innerText=0; document.getElementById('mem-time').innerText=60;
+    // [수정됨] 단어 부족 시 자동 패스 처리 & 딴짓 감지 방지
+    if(currentWords.length < 8) {
+        isStudyActive = false; // 경고창 뜰 때 딴짓 감지 끄기
+        alert("⚡ [테스트 모드] 단어가 부족하여(8개 미만) 자동으로 통과됩니다! 🎉");
+        unlockNextStep();
+        return;
+    }
+    
+    showSection('memory-game-section'); gameScore=0; matchedCount=0; document.getElementById('mem-score').innerText=0; document.getElementById('mem-time').innerText=60;
     const words = [...currentWords].sort(()=>0.5-Math.random()).slice(0,8);
     memCards=[]; words.forEach((w,i)=>{ memCards.push({id:i,t:w.english}); memCards.push({id:i,t:w.meaning}); });
     memCards.sort(()=>0.5-Math.random());
@@ -214,7 +276,6 @@ function checkMatch() {
 
 // 3. 반복 훈련 (Context Quiz)
 function startContextQuiz() { showSection('quiz-section'); quizQueue=[]; quizWrongAnswers=[]; currentWords.forEach(w=>{ quizQueue.push({w,t:'meaning'}); if(w.example) quizQueue.push({w,t:'example'}); else quizQueue.push({w,t:'meaning'}); if(w.synonyms||w.antonyms) quizQueue.push({w,t:(w.synonyms&&w.antonyms)?(Math.random()>0.5?'synonym':'antonym'):(w.synonyms?'synonym':'antonym')}); else quizQueue.push({w,t:'meaning'}); }); shuffleArray(quizQueue); if(quizQueue.length>50) quizQueue=quizQueue.slice(0,50); currentIndex=0; loadQuizQuestion(); }
-// (loadQuizQuestion, maskWordInSentence 등 기존 로직 동일) ...
 function maskWordInSentence(sentence, word) { if (!sentence || !word) return ""; const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); const safeWord = escapeRegExp(word); const variations = [safeWord]; if (word.endsWith('y')) { const root = word.slice(0, -1); variations.push(escapeRegExp(root) + "ied"); variations.push(escapeRegExp(root) + "ies"); variations.push(escapeRegExp(word) + "ing"); } else if (word.endsWith('e')) { const root = word.slice(0, -1); variations.push(escapeRegExp(root) + "ing"); variations.push(escapeRegExp(word) + "d"); variations.push(escapeRegExp(word) + "s"); } else { variations.push(escapeRegExp(word) + "s"); variations.push(escapeRegExp(word) + "ed"); variations.push(escapeRegExp(word) + "ing"); } const pattern = new RegExp(`\\b(${variations.join('|')})\\b`, 'gi'); let masked = sentence.replace(pattern, "_______"); if (masked === sentence) { masked = sentence.replace(new RegExp(safeWord, 'gi'), "_______"); } return masked; }
 function loadQuizQuestion() {
     const q=quizQueue[currentIndex]; const w=q.w; const box=document.getElementById('quiz-question'); const badge=document.getElementById('quiz-type-badge');
@@ -281,7 +342,15 @@ function startRetrySpelling() { if(wrongAnswers.length===0) return startSpelling
 
 // 6. 단어 몬스터
 function startMonsterGame() {
-    if(currentWords.length<10) return alert("단어가 10개 이상 필요해요!"); showSection('monster-game-section'); gameScore=0; monsterHp=100; playerHp=100; monsterIndex=0;
+    // [수정됨] 단어 부족 시 자동 패스 처리 & 딴짓 감지 방지
+    if(currentWords.length < 10) {
+        isStudyActive = false; // 경고창 뜰 때 딴짓 감지 끄기
+        alert("⚡ [테스트 모드] 단어가 부족하여(10개 미만) 자동으로 통과됩니다! 🎉");
+        unlockNextStep();
+        return;
+    }
+
+    showSection('monster-game-section'); gameScore=0; monsterHp=100; playerHp=100; monsterIndex=0;
     document.getElementById('monster-hp').style.width='100%'; document.getElementById('monster-hp-text').innerText='100';
     document.getElementById('player-hp').style.width='100%'; document.getElementById('player-hp-text').innerText='100'; document.getElementById('player-img').innerText='😊';
     monsterWords = [...currentWords].sort(()=>0.5-Math.random()).slice(0,10);
