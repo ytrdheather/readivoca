@@ -15,8 +15,9 @@ let currentUnlockStage = 7;
 
 // ★ 딴짓 방지 변수
 let isStudyActive = false;
+let blurWarningCount = 0; 
 
-// ★ [NEW] 학습 시간 및 시도 횟수 측정 변수
+// ★ 학습 시간 및 시도 횟수 측정 변수
 let studyStartTime = 0;
 let sessionRetryCount = 0;
 
@@ -37,14 +38,14 @@ function playCorrectSound() {
     audio.play().catch(e => console.log('사운드 재생 차단됨'));
 }
 
-// ★ [NEW] 효과음: 빵빠레 (산성비 클리어용)
+// ★ 효과음: 빵빠레
 function playFanfareSound() {
-    const audio = new Audio('https://actions.google.com/sounds/v1/cartoon/clank_clank.ogg'); // 경쾌한 성공음
+    const audio = new Audio('https://actions.google.com/sounds/v1/cartoon/clank_clank.ogg'); 
     audio.volume = 0.6;
     audio.play().catch(e => console.log('사운드 재생 차단됨'));
 }
 
-// ★ [NEW] 폭죽 효과 (Confetti)
+// ★ 폭죽 효과
 function triggerConfetti() {
     if (typeof confetti === 'function') {
         var duration = 3 * 1000;
@@ -70,10 +71,16 @@ function shuffleArray(array) {
     return array;
 }
 
+// 딴짓 방지 로직 (화면 이탈 감지)
 window.addEventListener('blur', () => {
     if (isStudyActive) {
-        alert("🚨 경고! 화면을 이탈하여 학습이 중단되고 0점 처리됩니다.");
-        stopStudyAndExit(); 
+        if (blurWarningCount === 0) {
+            alert("⚠️ [주의] 화면을 벗어나셨군요!\n\n실수일 수 있으니 한 번은 봐드립니다.\n한 번 더 화면을 이탈하면 학습이 즉시 종료되고 0점 처리됩니다.\n집중해주세요! 👀");
+            blurWarningCount++;
+        } else {
+            alert("🚨 [경고] 화면 이탈이 반복되었습니다.\n\n규정에 따라 학습을 중단하고 0점 처리합니다.");
+            stopStudyAndExit(); 
+        }
     }
 });
 
@@ -119,20 +126,52 @@ function tryStart(stage, startFunction) {
         alert(`🔒 이전 단계를 먼저 완료해야 합니다!\n(현재 ${currentUnlockStage}단계 진행 중)`);
         return;
     }
-    if (stage === 1) isStudyActive = false; else isStudyActive = true; 
     
     studyStartTime = Date.now();
     sessionRetryCount = 0; 
+    blurWarningCount = 0; 
+    
+    // ★ [수정됨] 1(암기), 2(카드), 4(산성비), 6(몬스터)는 딴짓 방지 해제 (게임 및 단순 암기)
+    const SAFE_STAGES = [1, 2, 4, 6];
+    if (SAFE_STAGES.includes(stage)) {
+        isStudyActive = false;
+    } else {
+        isStudyActive = true; 
+    }
     
     startFunction();
 }
+
+function getProgressKey() {
+    const book = document.getElementById('book-select').value;
+    const unit = document.getElementById('unit-select').value;
+    return `progress_${currentUser}_${book}_${unit}`;
+}
+
+function saveProgress() {
+    const key = getProgressKey();
+    localStorage.setItem(key, currentUnlockStage);
+}
+
+function loadProgress() {
+    const key = getProgressKey();
+    const savedStage = localStorage.getItem(key);
+    if (savedStage) {
+        currentUnlockStage = parseInt(savedStage);
+    } else {
+        currentUnlockStage = 1; 
+    }
+}
+
 function unlockNextStep() {
     if (currentUnlockStage < 7) {
         currentUnlockStage++;
+        saveProgress(); 
         alert(`🎉 축하합니다! ${currentUnlockStage}단계가 해제되었습니다.`);
     }
     backToDashboard();
 }
+
 function stopStudyAndExit() {
     isStudyActive = false; stopGame(); currentIndex = 0; quizQueue = []; wrongAnswers = [];
     showSection('dashboard-section'); updateMenuUI();
@@ -175,7 +214,23 @@ function submitCurrentRecord() {
 }
 async function loadBooks() { try { const res = await fetch(`${API_URL}/books`); const data = await res.json(); const s = document.getElementById('book-select'); s.innerHTML='<option value="">📚 교재 선택</option>'; data.forEach(b => { const o = document.createElement('option'); o.value=b; o.innerText=b; s.appendChild(o); }); const ts = document.getElementById('teacher-book-select'); if(ts) { ts.innerHTML='<option value="">교재 선택</option>'; data.forEach(b => { const o = document.createElement('option'); o.value=b; o.innerText=b; ts.appendChild(o); }); } } catch(e) {} }
 async function loadUnits() { const b = document.getElementById('book-select').value; const s = document.getElementById('unit-select'); s.innerHTML='<option>📂 유닛 선택</option>'; s.disabled=true; if(!b) return; const res = await fetch(`${API_URL}/units?book_name=${encodeURIComponent(b)}`); const data = await res.json(); data.forEach(u => { const o = document.createElement('option'); o.value=u; o.innerText=u; s.appendChild(o); }); s.disabled=false; }
-async function goToDashboard() { const b = document.getElementById('book-select').value; const u = document.getElementById('unit-select').value; if(!b || !u) return alert('모두 선택해주세요!'); try { const res = await fetch(`${API_URL}/start-learning`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({book_name:b, unit_name:u}) }); const w = await res.json(); if(w.length===0) return alert('단어 없음'); currentWords = w; document.getElementById('dash-unit-title').innerText = `${b} - ${u}`; updateMenuUI(); showSection('dashboard-section'); } catch(e) { alert('로드 실패'); } }
+
+async function goToDashboard() { 
+    const b = document.getElementById('book-select').value; const u = document.getElementById('unit-select').value; 
+    if(!b || !u) return alert('모두 선택해주세요!'); 
+    try { 
+        const res = await fetch(`${API_URL}/start-learning`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({book_name:b, unit_name:u}) }); 
+        const w = await res.json(); 
+        if(w.length===0) return alert('단어 없음'); 
+        currentWords = w; 
+        document.getElementById('dash-unit-title').innerText = `${b} - ${u}`; 
+        
+        loadProgress();
+        updateMenuUI(); 
+        
+        showSection('dashboard-section'); 
+    } catch(e) { alert('로드 실패'); } 
+}
 
 // 1. 암기
 function startFlashcard() { showSection('flashcard-section'); currentIndex=0; loadFlashcard(0); }
@@ -235,7 +290,7 @@ function maskWordInSentence(sentence, word) { if (!sentence || !word) return "";
 function loadQuizQuestion() {
     const q=quizQueue[currentIndex]; const w=q.w; const box=document.getElementById('quiz-question'); const badge=document.getElementById('quiz-type-badge');
     
-    // ★ [수정됨] 글씨 크기를 2rem -> 1.3rem으로 축소
+    // 글씨 크기 1.3rem
     box.style.fontSize = '1.3rem'; 
     
     if(q.t==='example') { box.innerText=maskWordInSentence(w.example, w.english); badge.innerText="빈칸에 들어갈 말은? (Example)"; } else if(q.t==='synonym') { box.innerText=w.synonyms; badge.innerText="유의어는?"; } else if(q.t==='antonym') { box.innerText=w.antonyms; badge.innerText="반의어는?"; } else { box.innerText=w.meaning; badge.innerText="이 뜻의 영어 단어는?"; }
@@ -256,7 +311,15 @@ function showQuizResult() {
     const score = Math.round(((quizQueue.length - quizWrongAnswers.length)/quizQueue.length)*100);
     document.getElementById('quiz-final-score').innerText = score;
     const wrongText = quizWrongAnswers.map(w=>w.english).join(', ');
-    pendingSubmission = { type:'quiz', score:score, wrongCount:quizWrongAnswers.length, wrongWordsText:wrongText };
+    
+    const duration = Math.floor((Date.now() - studyStartTime) / 1000);
+
+    pendingSubmission = { 
+        type:'quiz', score:score, wrongCount:quizWrongAnswers.length, wrongWordsText:wrongText,
+        duration: duration, 
+        tryCount: sessionRetryCount + 1 
+    };
+    
     const btn = document.getElementById('quiz-submit-btn'); const msg = document.getElementById('quiz-submit-msg');
     if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출 불가!"; msg.style.color="#dc3545"; } else { btn.disabled=false; btn.classList.remove('btn-disabled'); btn.innerText="제출하기 ✅"; msg.innerText="점수를 보낼까요?"; msg.style.color="#28a745"; }
     const div = document.getElementById('quiz-wrong-word-list'); div.innerHTML='';
@@ -267,6 +330,10 @@ function startRetryQuiz() { if(quizWrongAnswers.length===0) return startContextQ
 // 4. 단어 산성비
 function startWordRain() {
     showSection('word-rain-section'); gameScore=0; rainWords=[]; let life=3; document.getElementById('rain-score').innerText=0; document.getElementById('rain-life').innerText="❤️❤️❤️";
+    
+    // ★ [NEW] 2000점 버튼 초기화 (숨김)
+    document.getElementById('btn-rain-early-exit').classList.add('hidden');
+    
     const cont=document.getElementById('rain-canvas-container'); cont.innerHTML=''; document.getElementById('rain-input').value=''; document.getElementById('rain-input').focus();
     
     stopGame(); // 기존 타이머 초기화
@@ -313,7 +380,12 @@ function startWordRain() {
                 gameScore+=50; 
                 document.getElementById('rain-score').innerText=gameScore; 
 
-                // ★ [NEW] 4000점 클리어 조건 체크
+                // ★ [NEW] 2000점 넘으면 '그만하기' 버튼 보여주기
+                if(gameScore >= 2000) {
+                    document.getElementById('btn-rain-early-exit').classList.remove('hidden');
+                }
+
+                // ★ 4000점 클리어 조건 체크
                 if(gameScore >= 4000) {
                     finishGame('game_rain_clear', gameScore); // 클리어 타입 전달
                 }
@@ -347,7 +419,16 @@ function showSpellingResult() {
     const score = Math.round(((spellingList.length - wrongAnswers.length)/spellingList.length)*100);
     document.getElementById('spell-final-score').innerText = score;
     const wrongText = wrongAnswers.map(w=>w.english).join(', ');
-    pendingSubmission = { type:'spelling', score:score, wrongCount:wrongAnswers.length, wrongWordsText:wrongText };
+    
+    // ★ 시간 & 횟수
+    const duration = Math.floor((Date.now() - studyStartTime) / 1000);
+    
+    pendingSubmission = { 
+        type:'spelling', score:score, wrongCount:wrongAnswers.length, wrongWordsText:wrongText,
+        duration: duration,
+        tryCount: sessionRetryCount + 1
+    };
+    
     const btn = document.getElementById('spell-submit-btn'); const msg = document.getElementById('spell-submit-msg');
     if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출 불가!"; msg.style.color="#dc3545"; } else { btn.disabled=false; btn.classList.remove('btn-disabled'); btn.innerText="네! 제출할게요 ✅"; msg.innerText="훌륭해요! 점수를 보낼까요?"; msg.style.color="#28a745"; }
     const div = document.getElementById('spell-wrong-word-list'); div.innerHTML='';
@@ -357,7 +438,13 @@ function startRetrySpelling() { if(wrongAnswers.length===0) return startSpelling
 
 // 6. 단어 몬스터
 function startMonsterGame() {
-    if(currentWords.length < 10) { isStudyActive = false; alert("⚡ [테스트 모드] 자동 통과!"); unlockNextStep(); return; }
+    // [수정됨] 단어 부족 시 자동 패스 처리 & 딴짓 감지 방지
+    if(currentWords.length < 10) {
+        isStudyActive = false; // 경고창 뜰 때 딴짓 감지 끄기
+        alert("⚡ [테스트 모드] 단어가 부족하여(10개 미만) 자동으로 통과됩니다! 🎉");
+        unlockNextStep();
+        return;
+    }
 
     showSection('monster-game-section'); gameScore=0; monsterHp=100; playerHp=100; monsterIndex=0;
     document.getElementById('monster-hp').style.width='100%'; document.getElementById('monster-hp-text').innerText='100';

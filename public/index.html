@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Readitude Voca</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -118,16 +119,13 @@
             <button class="btn-secondary" onclick="backToDashboard()">대시보드로</button>
         </div>
 
-        <!-- 6. 반복 훈련 (업데이트: 박스 디자인 적용) -->
+        <!-- 6. 반복 훈련 -->
         <div id="quiz-section" class="hidden">
             <div class="score-board" id="quiz-progress">1 / 50</div>
-            
-            <!-- 문제 박스 (디자인 개선됨) -->
             <div class="quiz-question-container">
                 <div class="hint-text" id="quiz-type-badge" style="color:#32bfb6; font-weight:bold; margin-bottom:10px;"></div>
                 <div class="question-box large-text" id="quiz-question"></div>
             </div>
-
             <div class="option-grid" id="quiz-options"></div>
             <button class="btn-secondary" onclick="stopStudyAndExit()">중단하기</button>
         </div>
@@ -171,16 +169,24 @@
         <!-- 6. 단어 산성비 게임 -->
         <div id="word-rain-section" class="hidden">
             <h3 style="color:#2196f3">🌧️ 4. 단어 산성비</h3>
-            <div style="display:flex; justify-content:space-between; padding:0 20px;"><span>Life: <b id="rain-life">❤️❤️❤️</b></span> <span>Score: <b id="rain-score">0</b></span></div>
+            <div style="display:flex; justify-content:space-between; padding:0 20px;">
+                <span>Life: <b id="rain-life">❤️❤️❤️</b></span> 
+                <span>Goal: 4000 / Score: <b id="rain-score">0</b></span>
+            </div>
             <div id="rain-canvas-container"></div>
             <div class="rain-input-area"><input type="text" id="rain-input" placeholder="단어 입력" autocomplete="off"></div>
+            
+            <!-- ★ [NEW] 조기 완료 버튼 (2000점 넘으면 보임) -->
+            <button id="btn-rain-early-exit" class="btn-primary hidden" style="background-color:#2196f3; margin-top:10px;" onclick="finishGame('game_rain_clear', gameScore)">
+                🎉 2000점 달성! 여기서 그만하고 완료하기
+            </button>
+            
             <button class="btn-secondary" onclick="stopStudyAndExit()">중단하기</button>
         </div>
 
         <!-- 7. 단어 몬스터 게임 -->
         <div id="monster-game-section" class="hidden">
             <h3 style="color:#e91e63">🐲 6. 단어 몬스터 격파!</h3>
-            
             <div class="monster-container">
                 <div class="monster-hp-bar"><div id="monster-hp" style="width:100%"></div></div>
                 <div style="text-align:center; font-size:0.9rem; margin-bottom:5px;">Boss HP: <span id="monster-hp-text">100</span>%</div>
@@ -188,9 +194,7 @@
                 <div id="monster-damage" class="damage-effect hidden">-10</div>
                 <div id="monster-msg" class="hit-msg hidden">으악!</div>
             </div>
-
             <div style="font-weight:bold; color:#ccc; margin: 10px 0;">VS</div>
-
             <div class="player-container">
                 <div id="player-img">😊</div>
                 <div style="text-align:center; font-size:0.9rem; margin-bottom:5px;">My HP: <span id="player-hp-text">100</span>%</div>
@@ -198,12 +202,10 @@
                 <div id="player-damage" class="damage-effect hidden">-20</div>
                 <div id="player-msg" class="hit-msg hidden">아파!</div>
             </div>
-
             <div class="monster-quiz-area" style="margin-top:20px;">
                 <div class="question-box" id="mon-question" style="min-height:50px; font-size:1.3rem;">Apple</div>
                 <div class="option-grid" id="mon-options"></div>
             </div>
-            
             <button class="btn-secondary" onclick="stopStudyAndExit()">도망가기</button>
         </div>
 
@@ -246,7 +248,6 @@
             </div>
             <button class="btn-secondary" onclick="backToDashboard()" style="margin-top:30px;">대시보드로 (제출 안 함)</button>
         </div>
-
     </div>
     
     <!-- 인쇄 영역 -->
