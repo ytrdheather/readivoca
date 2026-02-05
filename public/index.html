@@ -10,9 +10,6 @@
 </head>
 <body>
 
-    <!-- 효과음 오디오 (정답 소리) -->
-    <audio id="sfx-correct" src="https://actions.google.com/sounds/v1/cartoon/pop.ogg"></audio>
-
     <div class="container">
         <!-- 1. 로그인 -->
         <div id="login-section">
@@ -175,18 +172,19 @@
             </div>
             <div id="rain-canvas-container"></div>
             <div class="rain-input-area"><input type="text" id="rain-input" placeholder="단어 입력" autocomplete="off"></div>
-            
-            <!-- ★ [NEW] 조기 완료 버튼 (2000점 넘으면 보임) -->
-            <button id="btn-rain-early-exit" class="btn-primary hidden" style="background-color:#2196f3; margin-top:10px;" onclick="finishGame('game_rain_clear', gameScore)">
-                🎉 2000점 달성! 여기서 그만하고 완료하기
-            </button>
-            
+            <button id="btn-rain-early-exit" class="btn-primary hidden" style="background-color:#2196f3; margin-top:10px;" onclick="finishGame('game_rain_clear', gameScore)">🎉 2000점 달성! 여기서 그만하고 완료하기</button>
             <button class="btn-secondary" onclick="stopStudyAndExit()">중단하기</button>
         </div>
 
         <!-- 7. 단어 몬스터 게임 -->
         <div id="monster-game-section" class="hidden">
+            <!-- ★ [NEW] BGM 토글 버튼 -->
+            <button id="bgm-toggle-btn" class="bgm-btn" onclick="toggleMonsterBgm()" title="배경음악 끄기/켜기">
+                <i class="fa-solid fa-volume-high"></i>
+            </button>
+            
             <h3 style="color:#e91e63">🐲 6. 단어 몬스터 격파!</h3>
+            
             <div class="monster-container">
                 <div class="monster-hp-bar"><div id="monster-hp" style="width:100%"></div></div>
                 <div style="text-align:center; font-size:0.9rem; margin-bottom:5px;">Boss HP: <span id="monster-hp-text">100</span>%</div>
@@ -194,7 +192,9 @@
                 <div id="monster-damage" class="damage-effect hidden">-10</div>
                 <div id="monster-msg" class="hit-msg hidden">으악!</div>
             </div>
+
             <div style="font-weight:bold; color:#ccc; margin: 10px 0;">VS</div>
+
             <div class="player-container">
                 <div id="player-img">😊</div>
                 <div style="text-align:center; font-size:0.9rem; margin-bottom:5px;">My HP: <span id="player-hp-text">100</span>%</div>
@@ -202,10 +202,12 @@
                 <div id="player-damage" class="damage-effect hidden">-20</div>
                 <div id="player-msg" class="hit-msg hidden">아파!</div>
             </div>
+
             <div class="monster-quiz-area" style="margin-top:20px;">
                 <div class="question-box" id="mon-question" style="min-height:50px; font-size:1.3rem;">Apple</div>
                 <div class="option-grid" id="mon-options"></div>
             </div>
+            
             <button class="btn-secondary" onclick="stopStudyAndExit()">도망가기</button>
         </div>
 
