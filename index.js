@@ -1,14 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
-// const { Client } = require('@notionhq/client'); // 이 도구는 이제 버립니다!
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ★ 'public' 폴더 안에 있는 파일들을 화면에 보여줘라!
 app.use(express.static('public'));
 
 // =======================================================
@@ -16,22 +14,19 @@ app.use(express.static('public'));
 // =======================================================
 const supabaseUrl = 'https://cbnldlmwsdzptniumokd.supabase.co';
 const supabaseKey = 'sb_publishable_-qAdnli9EsT1-iKCOEKyMw_f50-rp8i';
-
-// ★ Notion 키 (직접 연결용)
 const NOTION_KEY = 'ntn_O24683962583p89EYlVuyYlC4cHGMUbYhF7zF2SizDqb0C'; 
 const NOTION_DB_ID = '25409320bce2807697ede3f1c1b62ada';      
 // =======================================================
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ★ [NEW] 노션 직통 전화 함수 (도구 없이 직접 통신)
 async function callNotion(endpoint, method, body) {
   const response = await fetch(`https://api.notion.com/v1${endpoint}`, {
     method: method,
     headers: {
       'Authorization': `Bearer ${NOTION_KEY}`,
       'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28' // 가장 안정적인 버전
+      'Notion-Version': '2022-06-28' 
     },
     body: JSON.stringify(body)
   });
@@ -41,6 +36,12 @@ async function callNotion(endpoint, method, body) {
 // 1. 로그인
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
+  
+  // 관리자 프리패스
+  if(username === 'admin' && password === '1234') {
+      return res.json({ message: '성공', student_name: '관리자', book_name: '' });
+  }
+
   const { data, error } = await supabase
     .from('students')
     .select('*')
@@ -52,7 +53,7 @@ app.post('/login', async (req, res) => {
   
   res.json({ 
     message: '성공', 
-    student_name: 'Test 원장', 
+    student_name: data.name, 
     book_name: data.assigned_book 
   });
 });
@@ -87,7 +88,6 @@ app.post('/start-learning', async (req, res) => {
     .order('word_no', { ascending: true });
 
   if (unit_name && unit_name.toUpperCase().includes('DAY 01')) {
-    console.log("⚡ [테스트 모드] Day 01이라서 단어 5개만 가져옵니다.");
     query = query.limit(5);
   }
 
@@ -96,15 +96,12 @@ app.post('/start-learning', async (req, res) => {
   res.json(data);
 });
 
-// 5. 점수 저장 및 노션 전송 (직통 전화 사용)
+// 5. 점수 저장 & 노션
 app.post('/save-score', async (req, res) => {
-  const { student_name, book_name, unit_name, study_type, score, wrong_count, wrong_words } = req.body;
+  const { student_name, book_name, unit_name, study_type, score, wrong_count, wrong_words, duration, try_count } = req.body;
   const today = new Date().toISOString().split('T')[0];
 
-  console.log(`📝 [기록 요청] ${student_name} / ${study_type} / ${score}점`);
-
   try {
-    // 1. Supabase 저장
     await supabase.from('study_records').insert({
       who: student_name, what: `${book_name} - ${unit_name}`, which: study_type,
       score: score, wrong_count: wrong_count, wrong_words: wrong_words, when: new Date()
@@ -112,65 +109,43 @@ app.post('/save-score', async (req, res) => {
 
     if (study_type.includes('game')) return res.json({ message: "게임 점수 저장 완료" });
 
-    // 2. Notion 페이지 찾기 (직접 요청)
-    const queryBody = {
-      filter: {
-        and: [
-          { property: '이름', title: { equals: student_name } }, 
-          { property: '🕐 날짜', date: { equals: today } } // ★ [수정됨] 이모지 포함한 정확한 속성명!
-        ]
-      }
-    };
+    // 테스트가 아니면 노션 전송 생략
+    if (study_type !== 'test') return res.json({ message: "Supabase 저장 완료" });
 
-    // Notion API 호출
-    const response = await callNotion(`/databases/${NOTION_DB_ID}/query`, 'POST', queryBody);
+    const response = await notion.databases.query({
+      database_id: NOTION_DB_ID,
+      filter: { and: [{ property: '이름', title: { equals: student_name } }, { property: '🕐 날짜', date: { equals: today } }] }
+    });
 
-    if (response.results && response.results.length > 0) {
+    // 노션 업데이트 로직
+    let propertiesPayload = {};
+    if (response.results.length > 0) {
       const page = response.results[0];
-      const pageId = page.id;
-      
       const currentBook1 = page.properties['단어교재1']?.rich_text?.[0]?.plain_text || "";
       const currentBook2 = page.properties['단어교재2']?.rich_text?.[0]?.plain_text || "";
       let slotSuffix = (currentBook1 === "" || currentBook1 === book_name) ? "1" : (currentBook2 === "" || currentBook2 === book_name) ? "2" : null;
 
-      if (!slotSuffix) {
-        console.log("⚠️ Notion 슬롯 초과");
-        return res.json({ message: "Notion 슬롯 초과" });
-      }
+      if (!slotSuffix) return res.json({ message: "Notion 슬롯 초과" });
 
-      console.log(`📌 Notion 슬롯 당첨: ${slotSuffix}번`);
+      propertiesPayload[`단어교재${slotSuffix}`] = { rich_text: [{ text: { content: book_name } }] };
+      propertiesPayload[`단어유닛${slotSuffix}`] = { rich_text: [{ text: { content: unit_name } }] };
+      propertiesPayload[`테스트점수${slotSuffix}`] = { number: score }; 
+      propertiesPayload[`테스트오답${slotSuffix}`] = { rich_text: [{ text: { content: wrong_words || "-" } }] }; 
 
-      const updateData = {};
-      updateData[`단어교재${slotSuffix}`] = { rich_text: [{ text: { content: book_name } }] };
-      updateData[`단어유닛${slotSuffix}`] = { rich_text: [{ text: { content: unit_name } }] };
-      const wText = wrong_words || "-";
-
-      if (study_type === 'spelling') { 
-        updateData[`스펠링점수${slotSuffix}`] = { number: score }; 
-        updateData[`스펠링오답${slotSuffix}`] = { rich_text: [{ text: { content: wText } }] }; 
-      }
-      else if (study_type === 'quiz') { 
-        updateData[`반복점수${slotSuffix}`] = { number: score }; 
-        updateData[`반복오답${slotSuffix}`] = { rich_text: [{ text: { content: wText } }] }; 
-      }
-      else if (study_type === 'test') { 
-        updateData[`테스트점수${slotSuffix}`] = { number: score }; 
-        updateData[`테스트오답${slotSuffix}`] = { rich_text: [{ text: { content: wText } }] }; 
-      }
-
-      // 3. Notion 업데이트 (직접 요청)
-      await callNotion(`/pages/${pageId}`, 'PATCH', { properties: updateData });
-      console.log(`✅ Notion 업데이트 완료`);
+      await callNotion(`/pages/${page.id}`, 'PATCH', { properties: propertiesPayload });
     } else {
-      console.log("⚠️ Notion에서 오늘자 학생 페이지를 못 찾았습니다.");
+      propertiesPayload = {
+        '이름': { title: [{ text: { content: student_name } }] },
+        '🕐 날짜': { date: { start: today } },
+        '단어교재1': { rich_text: [{ text: { content: book_name } }] },
+        '단어유닛1': { rich_text: [{ text: { content: unit_name } }] },
+        '테스트점수1': { number: score },
+        '테스트오답1': { rich_text: [{ text: { content: wrong_words || "-" } }] }
+      };
+      await callNotion(`/pages`, 'POST', { parent: { database_id: NOTION_DB_ID }, icon: { type: "emoji", emoji: "📱" }, properties: propertiesPayload });
     }
-
     res.json({ message: "저장 완료" });
-
-  } catch (error) { 
-    console.error("서버 에러:", error);
-    res.status(500).json({ error: "저장 오류" }); 
-  }
+  } catch (error) { res.status(500).json({ error: "저장 오류" }); }
 });
 
 // 6. 랭킹
@@ -180,6 +155,87 @@ app.get('/rankings', async (req, res) => {
     const { data } = await supabase.from('study_records').select('who, score').eq('which', game_type).order('score', { ascending: false }).limit(10);
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 7. 관리자 API들 (대시보드, 업로드)
+app.get('/admin/dashboard', async (req, res) => {
+    const { date } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const start = `${targetDate}T00:00:00`;
+    const end = `${targetDate}T23:59:59`;
+    const { data, error } = await supabase.from('study_records').select('*').gte('when', start).lte('when', end).order('when', { ascending: false });
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+});
+app.post('/admin/bulk-upload', async (req, res) => {
+    const { words } = req.body;
+    if (!words || !Array.isArray(words)) return res.status(400).json({ error: '데이터 형식 오류' });
+    const cleanWords = words.map(w => ({
+      book_name: w.book_name, unit_name: w.unit_name, word_no: w.word_no ? parseInt(w.word_no) : 0,
+      english: w.english, meaning: w.meaning, example: w.example || null, synonyms: w.synonyms || null, antonyms: w.antonyms || null
+    })).filter(w => w.english && w.book_name);
+    const { data, error } = await supabase.from('words_original').insert(cleanWords);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ message: '성공', count: cleanWords.length });
+});
+app.get('/admin/search', async (req, res) => {
+    const { keyword } = req.query;
+    if (!keyword) return res.json([]);
+    const { data, error } = await supabase.from('words_original').select('*').or(`english.ilike.%${keyword}%,meaning.ilike.%${keyword}%`).limit(50);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+});
+app.post('/admin/update-word', async (req, res) => {
+    const { id, english, meaning, example, synonyms, antonyms } = req.body;
+    const { data, error } = await supabase.from('words_original').update({ english, meaning, example, synonyms, antonyms }).eq('id', id);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ message: "수정 완료!" });
+});
+
+// ★ [NEW] 실시간 시험 요청/승인 시스템 API
+app.post('/test/request', async (req, res) => {
+  const { student_name, book_name, unit_name } = req.body;
+  const { data: existing } = await supabase
+    .from('test_requests').select('*')
+    .eq('student_name', student_name).eq('book_name', book_name).eq('unit_name', unit_name).eq('status', 'pending').single();
+
+  if (existing) return res.json({ message: 'already_pending' });
+
+  const { error } = await supabase.from('test_requests').insert({ student_name, book_name, unit_name, status: 'pending' });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ message: 'requested' });
+});
+
+app.get('/test/status', async (req, res) => {
+  const { student_name, book_name, unit_name } = req.query;
+  const { data } = await supabase.from('test_requests').select('status')
+    .eq('student_name', student_name).eq('book_name', book_name).eq('unit_name', unit_name)
+    .order('created_at', { ascending: false }).limit(1).single();
+  res.json({ status: data ? data.status : 'none' });
+});
+
+app.get('/admin/test-requests', async (req, res) => {
+  const { data, error } = await supabase.from('test_requests').select('*').eq('status', 'pending').order('created_at', { ascending: true });
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/admin/approve-test', async (req, res) => {
+  const { request_id } = req.body;
+  const { error } = await supabase.from('test_requests').update({ status: 'approved' }).eq('id', request_id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ message: 'approved' });
+});
+
+// ★ [NEW] 8. 학생 목록 조회 (관리자용)
+app.get('/admin/students', async (req, res) => {
+  const { data, error } = await supabase
+    .from('students')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
 });
 
 app.listen(3000, () => {

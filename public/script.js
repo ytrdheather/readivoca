@@ -32,12 +32,12 @@ let monsterWords = [];
 let monsterIndex = 0;
 let rain2000SoundPlayed = false; 
 
-// ★ 카드 게임 변수
+// ★ 카드 게임 변수 (라운드 관리)
 let memoryRemainingWords = [];
 let memoryRound = 1;
 
 // --- 효과음 설정 ---
-// 몬스터 BGM (무한 반복)
+// 몬스터 BGM
 const monsterBgm = new Audio('monster_bgm.mp3');
 monsterBgm.loop = true; 
 monsterBgm.volume = 0.3; 
@@ -63,13 +63,7 @@ function playAchievementSound() { const a = new Audio('achievement1.mp3'); a.vol
 function playTestFinishSound() { const a = new Audio('test_finish.mp3'); a.volume=0.6; a.play().catch(e=>{}); }
 function playAcidRainSound() { const a = new Audio('acidrain.mp3'); a.volume=0.5; a.play().catch(e=>{}); }
 function playMonsterScream() { const a = new Audio('monsterscrem.mp3'); a.volume=0.6; a.play().catch(e=>{}); }
-
-// ★ [NEW] 플레이어 피격음 (hit_sound.mp3)
-function playPlayerHitSound() { 
-    const a = new Audio('hit_sound.mp3'); 
-    a.volume=0.6; 
-    a.play().catch(e=>{}); 
-}
+function playPlayerHitSound() { const a = new Audio('hit_sound.mp3'); a.volume=0.6; a.play().catch(e=>{}); }
 
 // ★ 폭죽 효과
 function triggerConfetti() {
@@ -102,12 +96,19 @@ window.addEventListener('blur', () => {
     }
 });
 
+// ★ [수정됨] 로그인 함수: 선생님이면 teacher.html로 이동!
 async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+    
+    // 선생님 계정 체크
     if (username === 'admin' && password === '1234') {
-        userType = 'teacher'; showSection('teacher-section'); initTeacherView(); return;
+        // 기존: userType = 'teacher'; showSection('teacher-section'); ...
+        // 변경: 페이지 이동
+        window.location.href = 'teacher.html';
+        return;
     }
+    
     try {
         const res = await fetch(`${API_URL}/login`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password })
@@ -139,10 +140,43 @@ function updateMenuUI() {
         }
     }
 }
-function tryStart(stage, startFunction) {
+
+// 7번 테스트 클릭 시 선생님 승인 체크
+async function tryStart(stage, startFunction) {
     if (stage > currentUnlockStage) {
         alert(`🔒 이전 단계를 먼저 완료하세요!`);
         return;
+    }
+    
+    // 7단계(실전 테스트)는 서버 승인 체크
+    if (stage === 7) {
+        const book = document.getElementById('book-select').value;
+        const unit = document.getElementById('unit-select').value;
+        
+        try {
+            const res = await fetch(`${API_URL}/test/status?student_name=${encodeURIComponent(currentUser)}&book_name=${encodeURIComponent(book)}&unit_name=${encodeURIComponent(unit)}`);
+            const data = await res.json();
+
+            if (data.status === 'approved') {
+                alert("✅ 선생님 승인 완료! 시험을 시작합니다. 화이팅!");
+            } else if (data.status === 'pending') {
+                alert("⏳ 선생님 승인을 기다리는 중입니다.\n잠시 후 다시 눌러주세요.");
+                return; // 시작 못 함
+            } else {
+                if (confirm("📝 실전 테스트를 보려면 선생님 승인이 필요합니다.\n요청을 보낼까요?")) {
+                    await fetch(`${API_URL}/test/request`, {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ student_name: currentUser, book_name: book, unit_name: unit })
+                    });
+                    alert("🚀 요청을 보냈습니다! 선생님이 승인해주시면 다시 누르세요.");
+                }
+                return; // 시작 못 함
+            }
+        } catch (e) {
+            console.error(e);
+            alert("서버 통신 오류");
+            return;
+        }
     }
     
     studyStartTime = Date.now();
@@ -203,15 +237,37 @@ async function saveRecord(type, score, wrongCount, wrongWordsList, duration, try
 }
 function submitCurrentRecord() {
     if (!pendingSubmission) return;
-    saveRecord(pendingSubmission.type, pendingSubmission.score, pendingSubmission.wrongCount, pendingSubmission.wrongWordsText, pendingSubmission.duration, pendingSubmission.tryCount);
+    saveRecord(
+        pendingSubmission.type, 
+        pendingSubmission.score, 
+        pendingSubmission.wrongCount, 
+        pendingSubmission.wrongWordsText,
+        pendingSubmission.duration,
+        pendingSubmission.tryCount
+    );
     if (pendingSubmission.score > 70) unlockNextStep(); else { alert("70점 미만입니다 ㅠㅠ"); backToDashboard(); }
 }
 async function loadBooks() { try { const res = await fetch(`${API_URL}/books`); const data = await res.json(); const s = document.getElementById('book-select'); s.innerHTML='<option value="">📚 교재 선택</option>'; data.forEach(b => s.innerHTML+=`<option>${b}</option>`); } catch(e){} }
 async function loadUnits() { const b = document.getElementById('book-select').value; const s = document.getElementById('unit-select'); s.innerHTML='<option>📂 유닛 선택</option>'; s.disabled=true; if(!b) return; const res = await fetch(`${API_URL}/units?book_name=${encodeURIComponent(b)}`); const data = await res.json(); data.forEach(u => s.innerHTML+=`<option>${u}</option>`); s.disabled=false; }
-async function goToDashboard() { const b = document.getElementById('book-select').value; const u = document.getElementById('unit-select').value; if(!b || !u) return alert('모두 선택해주세요!'); try { const res = await fetch(`${API_URL}/start-learning`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({book_name:b, unit_name:u}) }); const w = await res.json(); if(w.length===0) return alert('단어 없음'); currentWords = w; document.getElementById('dash-unit-title').innerText = `${b} - ${u}`; 
-// ★ [NEW] Day 02 치트키
-if (u.toUpperCase().includes("DAY 02")) { currentUnlockStage = 7; console.log("⚡ Day 02: 모든 단계 해금!"); } else { loadProgress(); }
-updateMenuUI(); showSection('dashboard-section'); } catch(e) { alert('로드 실패'); } }
+
+async function goToDashboard() { 
+    const b = document.getElementById('book-select').value; const u = document.getElementById('unit-select').value; 
+    if(!b || !u) return alert('모두 선택해주세요!'); 
+    try { 
+        const res = await fetch(`${API_URL}/start-learning`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({book_name:b, unit_name:u}) }); 
+        const w = await res.json(); 
+        if(w.length===0) return alert('단어 없음'); 
+        currentWords = w; 
+        document.getElementById('dash-unit-title').innerText = `${b} - ${u}`; 
+        
+        loadProgress();
+        // Day 02 치트키
+        if (u.toUpperCase().includes("DAY 02")) { currentUnlockStage = 7; console.log("⚡ Day 02: 모든 단계 해금!"); }
+        
+        updateMenuUI(); 
+        showSection('dashboard-section'); 
+    } catch(e) { alert('로드 실패'); } 
+}
 
 // 1. 암기
 function startFlashcard() { showSection('flashcard-section'); currentIndex=0; loadFlashcard(0); }
@@ -268,7 +324,7 @@ function checkMatch() {
 }
 
 // 3. 반복 훈련
-function startContextQuiz() { showSection('quiz-section'); quizQueue=[]; quizWrongAnswers=[]; currentWords.forEach(w=>{ quizQueue.push({w,t:'meaning'}); if(w.example) quizQueue.push({w,t:'example'}); else quizQueue.push({w,t:'meaning'}); if(w.synonyms||w.antonyms) { let t = (w.synonyms&&w.antonyms)?(Math.random()>0.5?'synonym':'antonym'):(w.synonyms?'synonym':'antonym'); quizQueue.push({w,t}); } else quizQueue.push({w,t:'meaning'}); }); shuffleArray(quizQueue); const TEST_LIMIT = 5; if(quizQueue.length > TEST_LIMIT) quizQueue = quizQueue.slice(0, TEST_LIMIT); currentIndex=0; loadQuizQuestion(); }
+function startContextQuiz() { showSection('quiz-section'); quizQueue=[]; quizWrongAnswers=[]; currentWords.forEach(w=>{ quizQueue.push({w,t:'meaning'}); if(w.example) quizQueue.push({w,t:'example'}); else quizQueue.push({w,t:'meaning'}); if(w.synonyms||w.antonyms) { let t = (w.synonyms&&w.antonyms)?(Math.random()>0.5?'synonym':'antonym'):(w.synonyms?'synonym':'antonym'); quizQueue.push({w,t:qType}); } else quizQueue.push({w,t:'meaning'}); }); shuffleArray(quizQueue); const TEST_LIMIT = 5; if(quizQueue.length > TEST_LIMIT) quizQueue = quizQueue.slice(0, TEST_LIMIT); currentIndex=0; loadQuizQuestion(); }
 function maskWordInSentence(s, w) { if(!s||!w)return ""; const r=new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'); return s.replace(r,'_______'); }
 function loadQuizQuestion() {
     const q=quizQueue[currentIndex]; const w=q.w; const box=document.getElementById('quiz-question'); const badge=document.getElementById('quiz-type-badge');
@@ -292,7 +348,8 @@ function showQuizResult() {
     const score = Math.round(((quizQueue.length - quizWrongAnswers.length)/quizQueue.length)*100);
     document.getElementById('quiz-final-score').innerText = score;
     const wrongText = quizWrongAnswers.map(w=>w.english).join(', ');
-    pendingSubmission = { type:'quiz', score, wrongCount:quizWrongAnswers.length, wrongWordsText:wrongText, duration: Math.floor((Date.now() - studyStartTime) / 1000), tryCount: sessionRetryCount + 1 };
+    const duration = Math.floor((Date.now() - studyStartTime) / 1000);
+    pendingSubmission = { type:'quiz', score, wrongCount:quizWrongAnswers.length, wrongWordsText:wrongText, duration, tryCount:sessionRetryCount+1 };
     const btn=document.getElementById('quiz-submit-btn'); const msg=document.getElementById('quiz-submit-msg');
     if(score<=70) { btn.disabled=true; btn.classList.add('btn-disabled'); btn.innerText="제출 불가 🚫"; msg.innerText="70점 이하는 제출 불가!"; msg.style.color="#dc3545"; } else { btn.disabled=false; btn.classList.remove('btn-disabled'); btn.innerText="제출하기 ✅"; msg.innerText="점수를 보낼까요?"; msg.style.color="#28a745"; }
     const div=document.getElementById('quiz-wrong-word-list'); div.innerHTML='';
@@ -309,15 +366,7 @@ function startWordRain() {
     rainInterval=setInterval(()=>{
         tick++; 
         if(tick%20===0) { const w=currentWords[Math.floor(Math.random()*currentWords.length)]; const el=document.createElement('div'); el.className='rain-word'; el.innerText=w.english; el.style.left=Math.random()*(cont.clientWidth-80)+'px'; el.style.top='0px'; cont.appendChild(el); rainWords.push({el,english:w.english,meaning:w.meaning,top:0}); }
-        rainWords.forEach((item,i)=>{ 
-            item.top+=5; item.el.style.top=item.top+'px'; 
-            if(item.top>380){ 
-                item.el.remove(); rainWords.splice(i,1); life--; document.getElementById('rain-life').innerText="❤️".repeat(life); 
-                // ★ [NEW] 바닥에 닿으면(피격) 소리 재생
-                playPlayerHitSound();
-                if(life<=0) finishGame('game_rain',gameScore); 
-            } 
-        });
+        rainWords.forEach((item,i)=>{ item.top+=5; item.el.style.top=item.top+'px'; if(item.top>380){ item.el.remove(); rainWords.splice(i,1); life--; document.getElementById('rain-life').innerText="❤️".repeat(life); if(life<=0) finishGame('game_rain',gameScore); } });
     },100);
     document.getElementById('rain-input').onkeydown=(e)=>{ 
         if(e.key==='Enter'){ 
@@ -351,7 +400,7 @@ function checkSpelling() {
     } else { document.getElementById('spell-feedback').innerText="땡!"; document.getElementById('spell-feedback').style.color='red'; isCurrentWordWrong=true; }
 }
 function showSpellingResult() {
-    playCompletedSound(); // ★ 완료음
+    playCompletedSound(); 
     showSection('spelling-result-section');
     const score = Math.round(((spellingList.length - wrongAnswers.length)/spellingList.length)*100);
     document.getElementById('spell-final-score').innerText = score;
@@ -367,6 +416,7 @@ function startRetrySpelling() { if(wrongAnswers.length===0) return startSpelling
 // 6. 단어 몬스터
 function startMonsterGame() {
     if(currentWords.length < 10) { isStudyActive = false; alert("⚡ 단어 부족 자동 통과!"); unlockNextStep(); return; }
+
     showSection('monster-game-section'); gameScore=0; monsterHp=100; playerHp=100; monsterIndex=0;
     document.getElementById('monster-hp').style.width='100%'; document.getElementById('monster-hp-text').innerText='100';
     document.getElementById('player-hp').style.width='100%'; document.getElementById('player-hp-text').innerText='100'; document.getElementById('player-img').innerText='😊';
@@ -379,16 +429,16 @@ function loadMonsterQuiz() {
     const opts=[w]; while(opts.length<4) { const r=currentWords[Math.floor(Math.random()*currentWords.length)]; if(!opts.some(o=>o.id===r.id)) opts.push(r); } shuffleArray(opts);
     const grid=document.getElementById('mon-options'); grid.innerHTML='';
     opts.forEach(o=>{ const b=document.createElement('button'); b.className='option-btn'; b.innerText=o.english; 
-        b.onclick=()=>{ if(o.id===w.id) { playCorrectSound(); b.classList.add('correct'); hitMonster(); setTimeout(()=>{ monsterIndex++; if(monsterIndex < 10) loadMonsterQuiz(); else finishGame('game_monster', gameScore + 1000); }, 800); } else { b.classList.add('wrong'); hitPlayer(); } }; grid.appendChild(b); 
+        b.onclick=()=>{ 
+            if(o.id===w.id) { 
+                playCorrectSound(); // 🔔 효과음
+                b.classList.add('correct'); hitMonster(); setTimeout(()=>{ monsterIndex++; if(monsterIndex < 10) loadMonsterQuiz(); else finishGame('game_monster', gameScore + 1000); }, 800); 
+            } else { b.classList.add('wrong'); hitPlayer(); } 
+        }; grid.appendChild(b); 
     });
 }
 function hitMonster() { monsterHp -= 10; document.getElementById('monster-hp').style.width = monsterHp+'%'; document.getElementById('monster-hp-text').innerText = monsterHp; gameScore += 100; playMonsterScream(); const monsterImg = document.getElementById('monster-img'); monsterImg.classList.add('shake-anim'); setTimeout(()=>monsterImg.classList.remove('shake-anim'), 500); const dmg = document.getElementById('monster-damage'); dmg.classList.remove('hidden'); dmg.innerText = "-10"; setTimeout(()=>dmg.classList.add('hidden'), 500); const msg = document.getElementById('monster-msg'); msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'), 500); }
-function hitPlayer() { 
-    playerHp -= 20; document.getElementById('player-hp').style.width = Math.max(0, playerHp) + '%'; document.getElementById('player-hp-text').innerText = Math.max(0, playerHp); 
-    // ★ [NEW] 플레이어 피격 사운드
-    playPlayerHitSound(); 
-    const playerImg = document.getElementById('player-img'); playerImg.innerText = '😭'; playerImg.classList.add('shake-anim'); setTimeout(()=> { playerImg.classList.remove('shake-anim'); if(playerHp > 0) playerImg.innerText = '😊'; }, 500); const dmg = document.getElementById('player-damage'); dmg.classList.remove('hidden'); dmg.innerText = "-20"; setTimeout(()=>dmg.classList.add('hidden'), 500); const msg = document.getElementById('player-msg'); msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'), 500); if(playerHp <= 0) setTimeout(() => finishGame('game_monster_fail', gameScore), 500); 
-}
+function hitPlayer() { playerHp -= 20; document.getElementById('player-hp').style.width = Math.max(0, playerHp) + '%'; document.getElementById('player-hp-text').innerText = Math.max(0, playerHp); playPlayerHitSound(); const playerImg = document.getElementById('player-img'); playerImg.innerText = '😭'; playerImg.classList.add('shake-anim'); setTimeout(()=> { playerImg.classList.remove('shake-anim'); if(playerHp > 0) playerImg.innerText = '😊'; }, 500); const dmg = document.getElementById('player-damage'); dmg.classList.remove('hidden'); dmg.innerText = "-20"; setTimeout(()=>dmg.classList.add('hidden'), 500); const msg = document.getElementById('player-msg'); msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'), 500); if(playerHp <= 0) setTimeout(() => finishGame('game_monster_fail', gameScore), 500); }
 
 // 7. 실전 테스트
 let testQueue=[], testWrongAnswers=[];
