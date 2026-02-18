@@ -1,421 +1,412 @@
 const API_URL = 'http://localhost:3000';
+let availableBooks = [];
 
 window.onload = function() {
-    // 날짜 입력창에 오늘 날짜 기본 세팅
-    document.getElementById('dash-date').valueAsDate = new Date();
-    
-    // 데이터 불러오기 시작
-    loadStudents();  // 학생 목록
-    loadDashboard(); // 학습 현황
-    loadBooks();     // 교재 목록 (인쇄 센터용)
-    
-    // 실시간 요청 확인 (3초마다)
-    loadRequests();
-    setInterval(loadRequests, 3000);
+    setPeriod('today'); 
+    loadBooks().then(() => {
+        loadStudents();
+    });
 };
 
-function switchTab(tabId, btnElement) {
-    // 탭 내용 숨기기/보이기
+function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-    
+    document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
+    if(btn) btn.classList.add('active');
     
-    // 버튼 스타일 활성화
-    if (btnElement) {
-        btnElement.classList.add('active');
-    } else {
-        // 버튼을 직접 안 누르고 코드로 이동했을 때 처리
-        const targetBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.textContent.includes(tabId.substr(-1)));
-        if(targetBtn) targetBtn.classList.add('active');
-    }
-
-    // 탭 이동 시 데이터 새로고침
     if (tabId === 'tab-2') loadDashboard();
     if (tabId === 'tab-1') loadStudents();
 }
 
 function logout() { window.location.href = 'index.html'; }
 
-// --- 1. 학생 관리 (진짜 데이터 연동) ---
+// --- 날짜 필터 ---
+function setPeriod(type, btn) {
+    if(btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    const end = new Date(); const start = new Date();
+    
+    if(type === 'week') start.setDate(end.getDate() - 7);
+    else if(type === '2weeks') start.setDate(end.getDate() - 14); 
+    else if(type === 'month') start.setMonth(end.getMonth() - 1);
+    
+    const formatDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    document.getElementById('dash-date-end').value = formatDate(end);
+    document.getElementById('dash-date-start').value = formatDate(start);
+    
+    loadDashboard(); 
+}
+
+// --- 1. 학생 관리 (노션 연동 + 3개 교재 관리) ---
 async function loadStudents() {
     const tbody = document.getElementById('student-list-body');
-    tbody.innerHTML = '<tr><td colspan="4">데이터를 불러오는 중...</td></tr>';
-
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">데이터 불러오는 중...</td></tr>';
+    
     try {
         const res = await fetch(`${API_URL}/admin/students`);
         const students = await res.json();
+        tbody.innerHTML = '';
         
-        tbody.innerHTML = ''; // 초기화
-
-        if (!students || students.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4">등록된 학생이 없습니다.</td></tr>';
+        if (!students || !Array.isArray(students) || students.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">등록된 학생이 없습니다.</td></tr>';
             return;
         }
 
         students.forEach(s => {
+            const createSelect = (slotNum, currentVal) => {
+                let opts = `<option value="">(선택 안 함)</option>`;
+                availableBooks.forEach(book => {
+                    const selected = book === currentVal ? 'selected' : '';
+                    opts += `<option value="${book}" ${selected}>${book}</option>`;
+                });
+                return `<select id="book-${slotNum}-${s.pageId}" style="width:100%; padding:8px; font-size:0.9rem;">${opts}</select>`;
+            };
+
             tbody.innerHTML += `
-                <tr>
-                    <td>${s.username}</td>
+                <tr id="row-${s.pageId}">
                     <td><b>${s.name}</b></td>
-                    <td>${s.assigned_book || '<span style="color:#ccc">미지정</span>'}</td>
+                    <td style="color:#666;">${s.username}</td>
+                    <td>${createSelect(1, s.book1)}</td>
+                    <td>${createSelect(2, s.book2)}</td>
+                    <td>${createSelect(3, s.book3)}</td>
                     <td>
-                        <button class="btn-secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="alert('학생 정보 수정 기능은 준비 중입니다.')">관리</button>
+                        <button class="btn-primary" style="margin:0; padding:6px 12px; font-size:0.85rem;" 
+                                onclick="updateStudentBooks('${s.pageId}')">변경 저장</button>
                     </td>
                 </tr>
             `;
         });
+    } catch (e) { console.error(e); }
+}
+
+async function updateStudentBooks(pageId) {
+    const book1 = document.getElementById(`book-1-${pageId}`).value;
+    const book2 = document.getElementById(`book-2-${pageId}`).value;
+    const book3 = document.getElementById(`book-3-${pageId}`).value;
+
+    if(!confirm("이 학생의 교재 정보를 노션에 저장하시겠습니까?")) return;
+
+    try {
+        const res = await fetch(`${API_URL}/admin/update-student`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ pageId, book1, book2, book3 })
+        });
+        
+        if(res.ok) {
+            alert("✅ 저장 완료! 노션에 반영되었습니다.");
+        } else {
+            alert("❌ 저장 실패. 서버 로그를 확인하세요.");
+        }
     } catch (e) {
-        console.error(e);
-        tbody.innerHTML = '<tr><td colspan="4" style="color:red;">데이터 로드 실패</td></tr>';
+        alert("서버 오류 발생");
     }
 }
 
-// --- 2. 학습 현황판 (진짜 데이터 연동) ---
+// --- 2. 학습 현황 (대시보드) ---
 async function loadDashboard() {
-    const date = document.getElementById('dash-date').value;
+    const start = document.getElementById('dash-date-start').value;
+    const end = document.getElementById('dash-date-end').value;
     const tbody = document.getElementById('dashboard-body');
-    tbody.innerHTML = '<tr><td colspan="6">조회 중...</td></tr>';
+    
+    const refreshBtn = document.querySelector('.refresh-btn i');
+    if(refreshBtn) refreshBtn.classList.add('fa-spin');
 
     try {
-        const res = await fetch(`${API_URL}/admin/dashboard?date=${date}`);
-        const records = await res.json();
+        let records = [];
+        try {
+            const resRecords = await fetch(`${API_URL}/admin/dashboard?start=${start}&end=${end}`);
+            if (resRecords.ok) records = await resRecords.json();
+        } catch (err) { console.error("기록 로딩 실패:", err); }
+
+        let pendingRequests = [];
+        try {
+            const resRequests = await fetch(`${API_URL}/admin/test-requests`);
+            if (resRequests.ok) {
+                const data = await resRequests.json();
+                if (Array.isArray(data)) pendingRequests = data;
+            }
+        } catch (err) { console.error("요청 로딩 실패:", err); }
+
+        const requestMap = {};
+        if (Array.isArray(pendingRequests)) {
+            pendingRequests.forEach(req => {
+                requestMap[`${req.student_name}_${req.book_name}_${req.unit_name}`] = req.id;
+            });
+        }
+
+        tbody.innerHTML = '';
         
-        tbody.innerHTML = ''; // 초기화
-        
-        if (!records || records.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;">해당 날짜의 학습 기록이 없습니다.</td></tr>';
+        if (!records || !Array.isArray(records) || records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:30px; color:#999;">해당 기간의 학습 기록이 없습니다.</td></tr>';
+            if(refreshBtn) setTimeout(() => refreshBtn.classList.remove('fa-spin'), 500);
             return;
         }
 
+        const grouped = {};
         records.forEach(r => {
-            const time = new Date(r.when).toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+            const dateKey = r.when.split('T')[0];
+            const key = `${r.who}_${r.what}_${dateKey}`;
             
-            // 점수 색상 처리
-            let resultBadge = `<span style="color:${r.score>=70?'#28a745':'#dc3545'}; font-weight:bold;">${r.score}점</span>`;
-            if (r.which.includes('game')) resultBadge = `<span style="color:#ff9800">${r.score}점 (게임)</span>`;
+            if(!grouped[key]) {
+                grouped[key] = { who: r.who, what: r.what, date: r.when, badges: {}, scores: {}, finalScore: '-', book: '', unit: '' };
+                const splitIdx = r.what.lastIndexOf(' - ');
+                if (splitIdx > -1) {
+                    grouped[key].book = r.what.substring(0, splitIdx);
+                    grouped[key].unit = r.what.substring(splitIdx + 3);
+                }
+            }
             
-            // 학습 유형 한글 변환
-            const typeName = translateType(r.which);
+            const typeMap = { 'flashcard':1, 'game_memory':2, 'quiz':3, 'game_rain':4, 'spelling':5, 'game_monster':6, 'test':7 };
+            const stage = typeMap[r.which];
+            if(stage) {
+                grouped[key].badges[stage] = true;
+                const currentScore = grouped[key].scores[stage] || 0;
+                if (r.score > currentScore) {
+                    grouped[key].scores[stage] = r.score;
+                }
+            }
+            if(r.which === 'test') grouped[key].finalScore = r.score;
+        });
+
+        Object.values(grouped).forEach(item => {
+            const dateStr = new Date(item.date).toLocaleDateString();
+            
+            let badgeHtml = '<div class="progress-badges">';
+            for(let i=1; i<=7; i++) {
+                const isDone = item.badges[i];
+                const score = item.scores[i] || 0;
+                const className = isDone ? (i%2===0 ? 'p-badge game' : 'p-badge done') : 'p-badge';
+                
+                badgeHtml += `
+                    <div style="display:flex; flex-direction:column; align-items:center; margin-right:4px;">
+                        <div class="${className}">${i}</div>
+                        ${isDone ? `<span style="font-size:10px; color:#32bfb6; font-weight:bold; margin-top:2px;">${score}</span>` : '<span style="height:14px; display:block;"></span>'}
+                    </div>`;
+            }
+            badgeHtml += '</div>';
+
+            let summaryTag = '';
+            if (item.finalScore !== '-') {
+                summaryTag = `<span class="score-tag ${item.finalScore >= 90 ? 'high' : ''}" style="margin-top:5px;">Final: ${item.finalScore}</span>`;
+            }
+
+            const reqKey = `${item.who}_${item.book}_${item.unit}`;
+            const pendingId = requestMap[reqKey];
+            
+            let btnHtml = '';
+            if (pendingId) {
+                btnHtml = `<button class="status-btn pending" onclick="approveTestInTable(this, ${pendingId})">승인 요청</button>`;
+            } else if (item.finalScore !== '-') {
+                btnHtml = `<button class="status-btn approved">승인 완료</button>`;
+            } else {
+                btnHtml = `<button class="status-btn none">준비</button>`;
+            }
 
             tbody.innerHTML += `
                 <tr>
-                    <td>${time}</td>
-                    <td><b>${r.who}</b></td>
-                    <td>${r.what}</td>
-                    <td><span class="badge ${r.which}">${typeName}</span></td>
-                    <td>${resultBadge}</td>
-                    <td style="font-size:0.85rem; color:#666; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.wrong_words}">${r.wrong_words || '-'}</td>
+                    <td><b>${item.who}</b></td>
+                    <td>${item.what}</td>
+                    <td style="color:#666;">${dateStr}</td>
+                    <td>
+                        <div class="progress-container">
+                            ${badgeHtml}
+                            ${summaryTag}
+                        </div>
+                    </td>
+                    <td>${btnHtml}</td>
                 </tr>
             `;
         });
-    } catch(e) { 
-        console.error(e); 
-        tbody.innerHTML = '<tr><td colspan="6">서버 연결 오류</td></tr>';
+    } catch(e) { console.error(e); }
+    
+    if(refreshBtn) setTimeout(() => refreshBtn.classList.remove('fa-spin'), 500);
+}
+
+async function approveTestInTable(btnElement, requestId) {
+    if(!confirm("시험을 승인하시겠습니까?")) return;
+    try {
+        const res = await fetch(`${API_URL}/admin/approve-test`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({request_id: requestId})
+        });
+        if(res.ok) {
+            btnElement.className = 'status-btn approved';
+            btnElement.innerText = '승인 완료';
+            btnElement.onclick = null;
+            alert("승인되었습니다!");
+        } else alert("오류가 발생했습니다.");
+    } catch(e) { alert("서버 통신 오류"); }
+}
+
+async function uploadManualText() {
+    const book = document.getElementById('manual-book-name').value.trim();
+    const unit = document.getElementById('manual-unit-name').value.trim();
+    const text = document.getElementById('manual-text-input').value.trim();
+    if(!book || !unit || !text) return alert("모두 입력하세요");
+
+    const lines = text.split('\n');
+    const parsed = [];
+    lines.forEach((l, i) => {
+        l = l.trim(); if(!l) return;
+        let p = l.split('\t'); if(p.length<2 && l.includes('|')) p=l.split('|');
+        if(p.length>=2) parsed.push({ book_name:book, unit_name:unit, word_no:i+1, english:p[0].trim(), meaning:p[1].trim(), antonyms:p[2]?.trim(), synonyms:p[3]?.trim(), example:p[4]?.trim() });
+    });
+
+    if(confirm(`${parsed.length}개 업로드?`)) {
+        await fetch(`${API_URL}/admin/bulk-upload`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({words:parsed}) });
+        alert("완료!");
+        loadBooks(); // 책 목록 갱신
     }
 }
-
-function translateType(type) {
-    const map = { 
-        'flashcard':'📖 암기', 'spelling':'⌨️ 스펠링', 'quiz':'🔄 반복', 'test':'📝 테스트', 
-        'game_memory':'🃏 카드', 'game_rain':'🌧️ 산성비', 'game_monster':'🐲 몬스터', 'game_monster_fail': '🐲 몬스터(패)'
-    };
-    return map[type] || type;
-}
-
-// --- 3. 단어 데이터 관리 ---
-
-// CSV 양식 다운로드
 function downloadTemplate() {
-    // 엑셀에서 바로 열리도록 BOM 추가
     const csvContent = "\uFEFFbook_name,unit_name,word_no,english,meaning,antonyms,synonyms,example\n능률보카,Day 01,1,apple,사과,,fruit,I eat an apple";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "sample_voca.csv";
-    link.click();
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "sample.csv"; link.click();
 }
-
-// CSV 파일 업로드
 function uploadCSV() {
-    const fileInput = document.getElementById('csv-file');
-    const file = fileInput.files[0];
-    if (!file) return alert("파일을 먼저 선택해주세요!");
-
-    Papa.parse(file, {
-        header: true, skipEmptyLines: true,
-        complete: async function(results) {
-            if (results.data.length === 0) return alert("데이터가 없는 파일입니다.");
-            
-            if (!confirm(`총 ${results.data.length}개의 단어를 업로드하시겠습니까?\n(기존 데이터에 추가됩니다)`)) return;
-            
-            try {
-                const res = await fetch(`${API_URL}/admin/bulk-upload`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ words: results.data })
-                });
-                const result = await res.json();
-                if (res.ok) alert(`✅ ${result.count}개 단어가 성공적으로 저장되었습니다!`);
-                else alert("❌ 저장 실패: " + result.error);
-            } catch (err) { alert("서버 오류 발생"); }
-        }
-    });
+    const file = document.getElementById('csv-file').files[0];
+    if (!file) return alert("파일 선택!");
+    Papa.parse(file, { header: true, skipEmptyLines: true, complete: async function(results) {
+        if (!confirm(`총 ${results.data.length}개 업로드?`)) return;
+        const res = await fetch(`${API_URL}/admin/bulk-upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ words: results.data }) });
+        alert("완료!");
+        loadBooks(); // 책 목록 갱신
+    }});
 }
-
-// 텍스트 간편 업로드
-async function uploadManualText() {
-    const bookName = document.getElementById('manual-book-name').value.trim();
-    const unitName = document.getElementById('manual-unit-name').value.trim();
-    const rawText = document.getElementById('manual-text-input').value.trim();
-
-    if (!bookName || !unitName || !rawText) return alert("교재명, 유닛명, 단어 내용을 모두 입력해주세요!");
-
-    const lines = rawText.split('\n');
-    const parsedData = [];
-
-    lines.forEach((line, index) => {
-        line = line.trim();
-        if (!line) return;
-        // 탭이나 파이프로 분리
-        let parts = line.split('\t');
-        if (parts.length < 2 && line.includes('|')) parts = line.split('|');
-
-        if (parts.length >= 2) {
-            parsedData.push({
-                book_name: bookName, unit_name: unitName, word_no: index + 1,
-                english: parts[0].trim(), 
-                meaning: parts[1].trim(),
-                antonyms: parts[2] ? parts[2].trim() : null,
-                synonyms: parts[3] ? parts[3].trim() : null,
-                example: parts[4] ? parts[4].trim() : null
-            });
-        }
-    });
-
-    if (parsedData.length === 0) return alert("인식된 단어가 없습니다. 형식을 확인해주세요.");
-
-    if (!confirm(`총 ${parsedData.length}개의 단어를 업로드하시겠습니까?`)) return;
-
-    try {
-        const res = await fetch(`${API_URL}/admin/bulk-upload`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ words: parsedData })
-        });
-        const result = await res.json();
-        if (res.ok) { 
-            alert(`✅ ${result.count}개 저장 완료!`); 
-            document.getElementById('manual-text-input').value = ''; 
-            searchWords(); // 검색 목록 갱신
-        } 
-        else alert("❌ 저장 실패: " + result.error);
-    } catch (err) { alert("서버 오류"); }
-}
-
-// 단어 검색 및 수정
-async function searchWords() {
-    const k = document.getElementById('mgr-search-input').value;
-    // 검색어 없어도 전체 조회 가능하게 하려면 아래 줄 주석 처리
-    // if (!k) return alert("검색어를 입력하세요");
-
-    const res = await fetch(`${API_URL}/admin/search?keyword=${encodeURIComponent(k)}`);
-    const words = await res.json();
-    const list = document.getElementById('mgr-result-list');
-    list.innerHTML = '';
-    
-    if(words.length === 0) { list.innerHTML = '<div style="padding:20px; text-align:center;">검색 결과가 없습니다.</div>'; return; }
-    
-    words.forEach(w => {
-        const div = document.createElement('div'); div.className='word-item';
-        div.innerHTML = `
-            <div style="display:flex; justify-content:space-between;">
-                <span class="word-en">${w.english}</span>
-                <span class="word-ko">${w.meaning}</span>
-            </div>
-            <div class="word-meta">${w.book_name} > ${w.unit_name}</div>
-        `;
-        div.onclick = () => openModal(w);
-        list.appendChild(div);
-    });
-}
-
-function openModal(w) {
-    document.getElementById('edit-id').value = w.id;
-    document.getElementById('edit-en').value = w.english;
-    document.getElementById('edit-ko').value = w.meaning;
-    document.getElementById('edit-ex').value = w.example || '';
-    document.getElementById('edit-syn').value = w.synonyms || '';
-    document.getElementById('edit-ant').value = w.antonyms || '';
-    document.getElementById('edit-modal').style.display = 'flex';
-}
-
-async function saveWord() {
-    const id = document.getElementById('edit-id').value;
-    const body = { 
-        id: id, 
-        english: document.getElementById('edit-en').value, 
-        meaning: document.getElementById('edit-ko').value, 
-        example: document.getElementById('edit-ex').value, 
-        synonyms: document.getElementById('edit-syn').value, 
-        antonyms: document.getElementById('edit-ant').value 
-    };
-    
-    const res = await fetch(`${API_URL}/admin/update-word`, { 
-        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) 
-    });
-    
-    if(res.ok) { 
-        alert("✅ 수정되었습니다!"); 
-        document.getElementById('edit-modal').style.display='none'; 
-        searchWords(); // 목록 갱신
-    } else {
-        alert("❌ 수정 실패");
-    }
-}
-
-// --- 4. 스마트 인쇄 센터 (교재 불러오기 해결) ---
-async function loadBooks() {
-    try {
-        const res = await fetch(`${API_URL}/books`);
-        const data = await res.json();
-        
-        // 인쇄용 선택창
-        const s = document.getElementById('print-book-select');
-        s.innerHTML = '<option value="">📚 교재 선택</option>';
-        data.forEach(b => s.innerHTML += `<option>${b}</option>`);
-
-        // 선생님 대시보드 조회용 선택창
-        const ts = document.getElementById('teacher-book-select');
-        if(ts) {
-            ts.innerHTML = '<option value="">전체 보기</option>';
-            data.forEach(b => ts.innerHTML += `<option>${b}</option>`);
-        }
-    } catch(e) { console.error("책 목록 로드 실패:", e); }
-}
-
-async function loadPrintUnits() {
+async function loadPrintUnits() { 
     const b = document.getElementById('print-book-select').value;
     const s = document.getElementById('print-unit-select');
-    s.innerHTML = '<option>유닛 로딩중...</option>'; s.disabled=true;
-    
-    if(!b) { s.innerHTML='<option>유닛 선택</option>'; return; }
-
     const res = await fetch(`${API_URL}/units?book_name=${encodeURIComponent(b)}`);
     const data = await res.json();
-    
-    s.innerHTML = '<option>📂 유닛 선택</option>';
-    data.forEach(u => s.innerHTML += `<option>${u}</option>`);
-    s.disabled=false;
+    s.innerHTML = '<option>유닛 선택</option>'; data.forEach(u => s.innerHTML += `<option>${u}</option>`);
 }
-
-// 시험지 생성 로직
-async function generatePrint(type) {
+async function generatePrint(type) { 
     const book = document.getElementById('print-book-select').value;
     const unit = document.getElementById('print-unit-select').value;
-    if (book.includes('선택') || unit.includes('선택')) return alert("교재와 유닛을 먼저 선택해주세요.");
-
-    const res = await fetch(`${API_URL}/start-learning`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ book_name: book, unit_name: unit }) });
+    if (book.includes('선택') || unit.includes('선택')) return alert("선택하세요");
+    
+    const res = await fetch(`${API_URL}/start-learning`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({book_name:book, unit_name:unit}) });
     let words = await res.json();
     
-    if(!words || words.length === 0) return alert("해당 유닛에 단어가 없습니다.");
-
-    // 옵션 값 가져오기
-    const totalCount = parseInt(document.getElementById('print-total-count').value) || 20;
-    const rMean = parseInt(document.getElementById('ratio-meaning').value) || 0;
-    const rSpell = parseInt(document.getElementById('ratio-spelling').value) || 0;
-    const rEx = parseInt(document.getElementById('ratio-example').value) || 0;
-    const rSyn = parseInt(document.getElementById('ratio-synant').value) || 0;
-
-    // 단어 섞기
-    words.sort(() => 0.5 - Math.random());
+    if(words.length === 0) return alert("단어 데이터가 없습니다.");
     
-    // 문제 개수 계산
-    const countMean = Math.floor(totalCount * (rMean / 100));
-    const countSpell = Math.floor(totalCount * (rSpell / 100));
-    const countEx = Math.floor(totalCount * (rEx / 100));
-    const countSyn = totalCount - countMean - countSpell - countEx; // 나머지는 유의어로
-
-    let questions = [];
-    let cursor = 0;
-    function getWord() { return words[(cursor++) % words.length]; } // 단어 모자르면 순환
-
-    for(let i=0; i<countMean; i++) questions.push({ w: getWord(), type: 'meaning' });
-    for(let i=0; i<countSpell; i++) questions.push({ w: getWord(), type: 'spelling' });
-    for(let i=0; i<countEx; i++) questions.push({ w: getWord(), type: 'example' });
-    for(let i=0; i<countSyn; i++) questions.push({ w: getWord(), type: 'synonym' });
+    const count = parseInt(document.getElementById('print-total-count').value) || 20;
+    const rMeaning = parseInt(document.getElementById('ratio-meaning').value) || 40;
+    const rSpelling = parseInt(document.getElementById('ratio-spelling').value) || 30;
+    const rExample = parseInt(document.getElementById('ratio-example').value) || 20;
+    const rSynAnt = parseInt(document.getElementById('ratio-synant').value) || 10;
     
-    // 문제 순서 섞기
-    questions.sort(() => 0.5 - Math.random());
-
-    // 인쇄 화면 채우기
-    const title = document.getElementById('print-title');
+    words.sort(() => Math.random() - 0.5);
+    const selectedWords = words.slice(0, count);
+    
+    document.getElementById('print-area').style.display = 'block';
     const tbody = document.getElementById('print-tbody');
     tbody.innerHTML = '';
-
-    if (type === 'test') {
-        title.innerText = `${unit} - Vocabulary Test`;
-        questions.forEach((q, i) => {
-            let left = '', right = '____________________';
-            if(q.type === 'meaning') left = `${i+1}. ${q.w.english}`; 
-            else if(q.type === 'spelling') left = `${i+1}. ${q.w.meaning}`;
-            else if(q.type === 'example') left = `${i+1}. ${q.w.example ? q.w.example.replace(new RegExp(q.w.english, 'gi'), '______') : q.w.meaning} (빈칸)`;
-            else left = `${i+1}. ${q.w.synonyms || q.w.meaning} (유의어/뜻)`;
-            tbody.innerHTML += `<tr><td class="print-col-left">${left}</td><td class="print-col-right">${right}</td></tr>`;
-        });
-    } else if (type === 'answer') {
-        title.innerText = `${unit} - Answer Key`;
-        questions.forEach((q, i) => {
-            let answer = q.type === 'meaning' ? q.w.meaning : q.w.english;
-            tbody.innerHTML += `<tr><td class="print-col-left">${i+1}. (${q.type})</td><td class="print-col-right" style="color:red; font-weight:bold;">${answer}</td></tr>`;
-        });
-    } else {
-        // 워크북
-        title.innerText = `${unit} - Workbook`;
-        words.forEach((w, i) => {
-            tbody.innerHTML += `
-                <tr>
-                    <td class="print-col-left" style="font-size:14pt;">${i+1}. ${w.english}</td>
-                    <td class="print-col-right">
-                        <div>뜻: <span style="color:#ccc;">${w.meaning}</span></div>
-                        <div style="margin-top:5px; font-size:0.9rem; color:#555;">Ex: ${w.example || '-'}</div>
-                        <div style="margin-top:20px; border-bottom:1px solid #ddd;">&nbsp;</div>
-                    </td>
-                </tr>
-            `;
-        });
-    }
-    window.print();
-}
-
-// --- 실시간 요청 (대기열) ---
-async function loadRequests() {
-    try {
-        const res = await fetch(`${API_URL}/admin/test-requests`);
-        const requests = await res.json();
-        const box = document.getElementById('request-queue-box');
-        const list = document.getElementById('request-list');
+    
+    const titles = { 'test': 'Vocabulary Test', 'workbook': 'Vocabulary Workbook', 'answer': 'Answer Key' };
+    document.getElementById('print-title').innerText = `${titles[type]} - ${book} ${unit}`;
+    
+    selectedWords.forEach((w, i) => {
+        let question = '', answer = w.english;
+        let qType = 'meaning';
         
-        if (requests.length > 0) {
-            box.style.display = 'block';
-            list.innerHTML = '';
-            requests.forEach(r => {
-                const time = new Date(r.created_at).toLocaleTimeString();
-                list.innerHTML += `
-                    <div class="req-card">
-                        <span>🔔 <b>${r.student_name}</b> 학생이 <b>[${r.book_name} - ${r.unit_name}]</b> 시험을 요청했습니다.</span>
-                        <button class="btn-primary" style="margin:0; padding:5px 15px; font-size:0.8rem;" onclick="approveTest(${r.id})">승인</button>
-                    </div>
-                `;
-            });
+        const rand = Math.random() * 100;
+        if(type === 'answer') {
+            qType = 'answer';
+        } else if (type === 'workbook') {
+            qType = 'workbook';
         } else {
-            box.style.display = 'none';
+            if (rand < rMeaning) qType = 'meaning';
+            else if (rand < rMeaning + rSpelling) qType = 'spelling';
+            else if (rand < rMeaning + rSpelling + rExample) qType = 'example';
+            else qType = 'synant';
         }
-    } catch(e) {}
+        
+        if(qType === 'meaning') {
+            question = `다음 뜻에 맞는 영어 단어를 쓰시오: <b>${w.meaning}</b>`;
+        } else if(qType === 'spelling') {
+            const hint = w.english.length > 2 ? w.english[0] + ' __ __ ' + w.english[w.english.length-1] : '__';
+            question = `다음 뜻을 가진 단어의 스펠링을 완성하시오 (${hint}): <b>${w.meaning}</b>`;
+        } else if(qType === 'example') {
+            const ex = w.example ? w.example.replace(new RegExp(w.english, 'gi'), '_______') : `(예문 없음) ${w.meaning}`;
+            question = `빈칸에 들어갈 단어는? : ${ex}`;
+        } else if(qType === 'synant') {
+            const t = w.synonyms ? `유의어: ${w.synonyms}` : (w.antonyms ? `반의어: ${w.antonyms}` : `뜻: ${w.meaning}`);
+            question = `다음 단어와 관련된 단어를 쓰시오 (${t})`;
+        } else if(qType === 'workbook') {
+            question = `[ ] ${w.english}`;
+            answer = `${w.meaning} / (예) ${w.example || ''}`;
+        } else if(qType === 'answer') {
+            question = `${i+1}. ${w.english}`;
+            answer = `${w.meaning}`;
+        }
+        
+        if(type === 'answer') {
+             tbody.innerHTML += `<tr><td class="print-col-left">${i+1}. ${w.english}</td><td class="print-col-right">${w.meaning}</td></tr>`;
+        } else {
+             tbody.innerHTML += `<tr><td class="print-col-left">${i+1}. ${question}</td><td class="print-col-right" style="color:#ccc;">(정답: ${type==='test'?'':answer}) __________________</td></tr>`;
+        }
+    });
+    
+    window.print();
+    setTimeout(() => { document.getElementById('print-area').style.display = 'none'; }, 1000);
 }
 
-async function approveTest(id) {
-    if(!confirm("시험을 승인하시겠습니까?")) return;
-    await fetch(`${API_URL}/admin/approve-test`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ request_id: id })
-    });
-    loadRequests(); 
-    alert("승인되었습니다!");
+// 교재 목록 로드 (전역 변수 + 인쇄/삭제 드롭다운 채우기)
+async function loadBooks() {
+    try {
+        const res = await fetch(`${API_URL}/books`); 
+        const data = await res.json();
+        availableBooks = data; // 전역 변수에 저장
+        
+        // 1. 인쇄 센터 드롭다운
+        const printSelect = document.getElementById('print-book-select'); 
+        if(printSelect) {
+            printSelect.innerHTML='<option>교재 선택</option>'; 
+            data.forEach(b=>printSelect.innerHTML+=`<option>${b}</option>`);
+        }
+
+        // 2. ★ [NEW] 교재 삭제 드롭다운
+        const deleteSelect = document.getElementById('delete-book-select');
+        if(deleteSelect) {
+            deleteSelect.innerHTML='<option>삭제할 교재 선택</option>';
+            data.forEach(b=>deleteSelect.innerHTML+=`<option>${b}</option>`);
+        }
+
+    } catch(e) { console.error("교재 목록 로딩 실패", e); }
+}
+
+// 교재 삭제 함수
+async function deleteBook() {
+    const bookName = document.getElementById('delete-book-select').value;
+    if (!bookName || bookName.includes("선택")) return alert("삭제할 교재를 선택해주세요.");
+
+    if (!confirm(`⚠️ 정말로 [${bookName}] 교재를 삭제하시겠습니까?\n\n이 교재에 포함된 모든 단어 데이터가 영구적으로 삭제됩니다!\n(학생들의 학습 기록은 유지되지만, 단어 데이터는 사라집니다.)`)) return;
+
+    try {
+        const res = await fetch(`${API_URL}/admin/delete-book`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ book_name: bookName })
+        });
+
+        if (res.ok) {
+            alert("✅ 교재가 성공적으로 삭제되었습니다.");
+            loadBooks(); // 목록 갱신
+        } else {
+            alert("❌ 삭제 실패. 서버 로그를 확인하세요.");
+        }
+    } catch (e) {
+        alert("서버 오류가 발생했습니다.");
+    }
 }

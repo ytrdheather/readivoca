@@ -3,149 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Readitude Teacher - 관리자 모드</title>
+    <title>Readitude Teacher</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .tab-menu { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
-        .tab-btn { background: none; border: none; padding: 10px 20px; font-size: 1.1rem; cursor: pointer; color: #777; font-weight: bold; }
-        .tab-btn.active { color: #32bfb6; border-bottom: 3px solid #32bfb6; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
-        .print-options { background: #f8f9fa; padding: 20px; border-radius: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .print-group { margin-bottom: 15px; }
-        .print-group label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
-        .print-group input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
-        .range-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
-        
-        .bulk-text-area { width: 100%; height: 150px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: monospace; font-size: 0.9rem; margin-bottom: 10px; resize: vertical; }
-        #request-queue-box { background: #fff3e0; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #ff9800; display: none; }
-        .req-card { background: white; padding: 10px 15px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #ddd; margin-bottom: 5px; }
-    </style>
 </head>
 <body>
-    <div class="container" style="max-width: 900px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h2 style="color:#32bfb6; margin:0;">👨‍🏫 Readitude Teacher</h2>
-            <button class="btn-secondary" onclick="logout()" style="margin:0; padding:5px 10px; font-size:0.9rem;">로그아웃</button>
-        </div>
+    <div class="teacher-container">
+        <!-- ★ 상단 메뉴 그룹 (헤더 + 탭) -->
+        <div class="sticky-header-group">
+            <!-- 헤더 -->
+            <header class="teacher-header">
+                <div class="logo-area">
+                    <img src="logo.png" alt="Readitude Logo" class="header-logo" onerror="this.style.display='none'; document.getElementById('fallback-icon').style.display='inline-block'">
+                    <i id="fallback-icon" class="fa-solid fa-chalkboard-user" style="display:none; font-size: 1.5rem; color: #32bfb6;"></i>
+                    <h2>Readitude Teacher</h2>
+                </div>
+                <button class="btn-secondary logout-btn" onclick="logout()">로그아웃</button>
+            </header>
 
-        <div class="tab-menu">
-            <button class="tab-btn active" onclick="switchTab('tab-1', this)">1. 학생 관리</button>
-            <button class="tab-btn" onclick="switchTab('tab-2', this)">2. 학습 현황</button>
-            <button class="tab-btn" onclick="switchTab('tab-3', this)">3. 단어 관리</button>
-            <button class="tab-btn" onclick="switchTab('tab-4', this)">4. 인쇄 센터</button>
+            <!-- 탭 메뉴 -->
+            <nav class="teacher-nav">
+                <button class="nav-btn active" onclick="switchTab('tab-1', this)">👥 학생 관리</button>
+                <button class="nav-btn" onclick="switchTab('tab-2', this)">📊 학습 현황</button>
+                <button class="nav-btn" onclick="switchTab('tab-3', this)">🛠️ 단어 업로드</button>
+                <button class="nav-btn" onclick="switchTab('tab-4', this)">🖨️ 인쇄 센터</button>
+            </nav>
         </div>
 
         <!-- 1. 학생 관리 -->
         <div id="tab-1" class="tab-content active">
-            <h3>👥 학생 관리 및 교재 배정</h3>
-            <table class="teacher-table">
-                <thead><tr><th>아이디</th><th>이름</th><th>배정된 교재</th><th>관리</th></tr></thead>
-                <tbody id="student-list-body"></tbody>
-            </table>
+            <div class="section-title">
+                <h3>학생 관리 및 교재 배정</h3>
+                <p>노션(Notion)의 학생 데이터를 불러옵니다. 교재를 선택하고 [저장]을 누르세요.</p>
+            </div>
+            
+            <div class="table-container">
+                <table class="planner-table">
+                    <thead>
+                        <tr>
+                            <th width="10%">이름</th>
+                            <th width="10%">아이디</th>
+                            <th>교재 1</th>
+                            <th>교재 2</th>
+                            <th>교재 3</th>
+                            <th width="10%">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-list-body">
+                        <!-- JS로 데이터 로드 -->
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- 2. 학습 현황 -->
         <div id="tab-2" class="tab-content">
-            <div id="request-queue-box">
-                <h4 style="color:#e65100; margin-top:0;">🚀 실시간 시험 승인 대기중...</h4>
-                <div id="request-list"></div>
+            <div class="section-title">
+                <h3>실시간 학습 현황</h3>
+                <div class="filter-wrapper">
+                    <div class="filter-group">
+                        <button class="filter-btn active" onclick="setPeriod('today', this)">오늘</button>
+                        <button class="filter-btn" onclick="setPeriod('week', this)">1주일</button>
+                        <button class="filter-btn" onclick="setPeriod('2weeks', this)">2주일</button>
+                        <button class="filter-btn" onclick="setPeriod('month', this)">1개월</button>
+                    </div>
+                    <div class="date-range">
+                        <button class="refresh-btn" onclick="loadDashboard()" title="현황 새로고침">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                        <input type="date" id="dash-date-start" class="date-picker"> 
+                        <span>~</span> 
+                        <input type="date" id="dash-date-end" class="date-picker">
+                        <button class="btn-primary search-btn" onclick="loadDashboard()">조회</button>
+                    </div>
+                </div>
             </div>
-            <h3>📊 실시간 학습 현황</h3>
-            <div style="display:flex; gap:10px; margin-bottom:15px;">
-                <input type="date" id="dash-date" style="width:auto;">
-                <button class="btn-primary" style="width:auto; margin:0;" onclick="loadDashboard()">조회</button>
+
+            <!-- 학습 현황 표 -->
+            <div class="table-container">
+                <table class="planner-table">
+                    <thead>
+                        <tr>
+                            <th width="12%">학생 이름</th>
+                            <th width="20%">학습 교재 / 유닛</th>
+                            <th width="15%">최근 학습일</th>
+                            <th>학습 진행도 & 점수</th>
+                            <th width="10%">시험 승인</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboard-body">
+                        <!-- JS로 데이터 로드 -->
+                    </tbody>
+                </table>
             </div>
-            <table class="teacher-table">
-                <thead><tr><th>시간</th><th>학생</th><th>내용</th><th>활동</th><th>결과</th><th>오답</th></tr></thead>
-                <tbody id="dashboard-body"></tbody>
-            </table>
         </div>
 
-        <!-- 3. 단어 관리 -->
+        <!-- 3. 단어 데이터 업로드 -->
         <div id="tab-3" class="tab-content">
-            <h3>🛠️ 단어 데이터 관리소</h3>
+            <div class="section-title">
+                <h3>단어 데이터 관리소</h3>
+                <p>새로운 교재 데이터를 업로드합니다.</p>
+            </div>
+
+            <div class="upload-card">
+                <div class="card-header">
+                    <h4>📝 간편 텍스트 업로드</h4>
+                    <span class="tip">엑셀 복사(Ctrl+C) → 붙여넣기(Ctrl+V)</span>
+                </div>
+                <div class="card-body">
+                    <div class="upload-guide">
+                        순서: <code>영어</code> | <code>뜻</code> | <code>반의어</code> | <code>유의어</code> | <code>예문</code>
+                    </div>
+                    <div class="input-row">
+                        <input type="text" id="manual-book-name" placeholder="교재명 (예: 능률보카)">
+                        <input type="text" id="manual-unit-name" placeholder="유닛명 (예: Day 01)">
+                    </div>
+                    <textarea id="manual-text-input" class="bulk-text-area" placeholder="내용을 붙여넣으세요..."></textarea>
+                    <button class="btn-primary full-width" onclick="uploadManualText()">업로드 및 저장</button>
+                </div>
+            </div>
             
-            <div style="background:#fff3e0; padding:20px; border-radius:10px; margin-bottom:20px; border: 1px solid #ffe0b2;">
-                <h4 style="color:#e65100; margin-top:0;">📝 간편 텍스트 업로드 (복사/붙여넣기)</h4>
-                <div class="upload-guide">순서: <code>영어</code> | <code>뜻</code> | <code>반의어</code> | <code>유의어</code> | <code>예문</code></div>
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <input type="text" id="manual-book-name" placeholder="교재명" style="flex:1;">
-                    <input type="text" id="manual-unit-name" placeholder="유닛명" style="flex:1;">
+            <div class="upload-card mt-20">
+                <div class="card-header">
+                    <h4>📂 CSV 파일 업로드</h4>
+                    <button class="btn-text" onclick="downloadTemplate()">양식 다운로드</button>
                 </div>
-                <textarea id="manual-text-input" class="bulk-text-area" placeholder="내용 붙여넣기..."></textarea>
-                <button class="btn-game" style="margin-top:0; width:auto; font-size:1rem; padding:8px 20px;" onclick="uploadManualText()">텍스트 분석 및 저장</button>
+                <div class="card-body flex-row">
+                    <input type="file" id="csv-file" accept=".csv">
+                    <button class="btn-primary" onclick="uploadCSV()">파일 업로드</button>
+                </div>
             </div>
 
-            <div style="background:#e3fcf7; padding:20px; border-radius:10px; margin-bottom:30px; border: 1px solid #b2dfdb;">
-                <h4 style="color:#00796b; margin-top:0;">📂 CSV 파일 업로드</h4>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <input type="file" id="csv-file" accept=".csv" style="background:white; padding:10px; border:1px solid #ccc; border-radius:5px; flex:1;">
-                    <button class="btn-secondary" style="margin:0; font-size:0.9rem;" onclick="downloadTemplate()">📥 양식 다운로드</button>
+            <!-- 교재 삭제 기능 -->
+            <div class="upload-card mt-20" style="border-color: #ffcdd2; background-color: #ffebee;">
+                <div class="card-header" style="background-color: #ef9a9a; color: white;">
+                    <h4>🗑️ 교재 데이터 삭제</h4>
+                    <span style="font-size:0.8rem;">주의: 선택한 교재의 모든 단어가 삭제됩니다!</span>
                 </div>
-                <button class="btn-primary" style="margin-top:15px;" onclick="uploadCSV()">업로드</button>
+                <div class="card-body flex-row">
+                    <select id="delete-book-select" style="flex:1; padding:10px;"><option>삭제할 교재 선택</option></select>
+                    <button class="btn-primary" style="background-color: #d32f2f; width: auto; box-shadow: 0 4px 0 #b71c1c;" onclick="deleteBook()">삭제하기</button>
+                </div>
             </div>
-
-            <h4>🔍 단어 검색/수정</h4>
-            <div class="search-box">
-                <input type="text" id="mgr-search-input" placeholder="단어 검색..." onkeypress="if(event.key==='Enter') searchWords()">
-                <button class="btn-primary" style="width:auto; margin:0;" onclick="searchWords()">검색</button>
-            </div>
-            <div id="mgr-result-list" class="word-list" style="max-height:300px;"></div>
         </div>
 
         <!-- 4. 인쇄 센터 -->
         <div id="tab-4" class="tab-content">
-            <h3>🖨️ 스마트 인쇄 센터</h3>
-            <div class="print-options">
-                <div class="print-group" style="grid-column: 1 / -1;">
+            <div class="section-title">
+                <h3>스마트 인쇄 센터</h3>
+                <p>맞춤형 시험지와 워크북을 제작합니다.</p>
+            </div>
+            
+            <div class="print-panel">
+                <div class="panel-section">
                     <label>1. 교재 및 범위</label>
-                    <div style="display:flex; gap:10px;">
+                    <div class="row">
                         <select id="print-book-select" onchange="loadPrintUnits()"><option>교재 선택</option></select>
                         <select id="print-unit-select"><option>유닛 선택</option></select>
                     </div>
                 </div>
-                <div class="print-group">
-                    <label>2. 문제 수</label><input type="number" id="print-total-count" value="20" min="5">
+                <div class="panel-section">
+                    <label>2. 문제 수</label>
+                    <input type="number" id="print-total-count" value="20" min="5">
                 </div>
-                <div class="print-group">
+                <div class="panel-section full">
                     <label>3. 출제 비율 (%)</label>
-                    <div class="range-wrap"><span style="width:80px;">의미</span> <input type="number" id="ratio-meaning" value="40">%</div>
-                    <div class="range-wrap"><span style="width:80px;">스펠링</span> <input type="number" id="ratio-spelling" value="30">%</div>
-                    <div class="range-wrap"><span style="width:80px;">예문</span> <input type="number" id="ratio-example" value="20">%</div>
-                    <div class="range-wrap"><span style="width:80px;">유/반의어</span> <input type="number" id="ratio-synant" value="10">%</div>
+                    <div class="ratio-inputs">
+                        <div><span>의미</span><input type="number" id="ratio-meaning" value="40">%</div>
+                        <div><span>스펠링</span><input type="number" id="ratio-spelling" value="30">%</div>
+                        <div><span>예문</span><input type="number" id="ratio-example" value="20">%</div>
+                        <div><span>유/반</span><input type="number" id="ratio-synant" value="10">%</div>
+                    </div>
                 </div>
-                <div class="print-group" style="grid-column: 1 / -1; display:flex; gap:10px; justify-content:center;">
+                <div class="panel-actions">
                     <button class="btn-primary" onclick="generatePrint('test')">📄 시험지</button>
-                    <button class="btn-game" style="margin:0; background-color:#ffc107; color:#333;" onclick="generatePrint('workbook')">📘 워크북</button>
-                    <button class="btn-secondary" style="margin:0;" onclick="generatePrint('answer')">✅ 답안지</button>
+                    <button class="btn-game" onclick="generatePrint('workbook')">📘 워크북</button>
+                    <button class="btn-secondary" onclick="generatePrint('answer')">✅ 답안지</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="edit-modal" class="modal">
-        <div class="modal-content">
-            <h3>단어 수정</h3>
-            <input type="hidden" id="edit-id">
-            <div class="form-group"><label>English</label><input type="text" id="edit-en"></div>
-            <div class="form-group"><label>Meaning</label><input type="text" id="edit-ko"></div>
-            <div class="form-group"><label>Example</label><textarea id="edit-ex"></textarea></div>
-            <div class="form-group"><label>Synonyms</label><input type="text" id="edit-syn"></div>
-            <div class="form-group"><label>Antonyms</label><input type="text" id="edit-ant"></div>
-            <div class="btn-group">
-                <button class="btn-secondary" onclick="document.getElementById('edit-modal').style.display='none'">취소</button>
-                <button class="btn-primary" onclick="saveWord()">저장</button>
+    <!-- 인쇄 영역 (숨김) -->
+    <div id="print-area" class="print-area">
+        <div class="print-header">
+            <h1 id="print-title">Vocabulary Test</h1>
+            <div class="print-info">
+                <span>Class: __________</span> <span>Name: ______________</span> <span>Score: ______</span>
             </div>
         </div>
-    </div>
-    
-    <div id="print-area" class="print-area">
-        <div class="print-header"><h1 id="print-title">Vocabulary Test</h1><div style="display:flex; justify-content:space-between; margin-top:10px; border-bottom:2px solid black; padding-bottom:10px;"><span>Class: __________</span> <span>Name: ______________</span> <span>Score: ______</span></div></div>
         <table class="print-table"><tbody id="print-tbody"></tbody></table>
     </div>
 

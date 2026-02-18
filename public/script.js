@@ -324,7 +324,28 @@ function checkMatch() {
 }
 
 // 3. 반복 훈련
-function startContextQuiz() { showSection('quiz-section'); quizQueue=[]; quizWrongAnswers=[]; currentWords.forEach(w=>{ quizQueue.push({w,t:'meaning'}); if(w.example) quizQueue.push({w,t:'example'}); else quizQueue.push({w,t:'meaning'}); if(w.synonyms||w.antonyms) { let t = (w.synonyms&&w.antonyms)?(Math.random()>0.5?'synonym':'antonym'):(w.synonyms?'synonym':'antonym'); quizQueue.push({w,t:qType}); } else quizQueue.push({w,t:'meaning'}); }); shuffleArray(quizQueue); const TEST_LIMIT = 5; if(quizQueue.length > TEST_LIMIT) quizQueue = quizQueue.slice(0, TEST_LIMIT); currentIndex=0; loadQuizQuestion(); }
+function startContextQuiz() { 
+    showSection('quiz-section'); 
+    quizQueue=[]; quizWrongAnswers=[]; 
+    
+    currentWords.forEach(w=>{ 
+        quizQueue.push({w,t:'meaning'}); 
+        if(w.example) quizQueue.push({w,t:'example'}); 
+        else quizQueue.push({w,t:'meaning'}); 
+        
+        if(w.synonyms||w.antonyms) { 
+            // ★ [수정] qType -> t (변수명 오타 수정)
+            let t = (w.synonyms&&w.antonyms)?(Math.random()>0.5?'synonym':'antonym'):(w.synonyms?'synonym':'antonym'); 
+            quizQueue.push({w,t:t}); 
+        } else {
+            quizQueue.push({w,t:'meaning'}); 
+        }
+    }); 
+    
+    shuffleArray(quizQueue); 
+    const TEST_LIMIT = 5; if(quizQueue.length > TEST_LIMIT) quizQueue = quizQueue.slice(0, TEST_LIMIT); 
+    currentIndex=0; loadQuizQuestion(); 
+}
 function maskWordInSentence(s, w) { if(!s||!w)return ""; const r=new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'); return s.replace(r,'_______'); }
 function loadQuizQuestion() {
     const q=quizQueue[currentIndex]; const w=q.w; const box=document.getElementById('quiz-question'); const badge=document.getElementById('quiz-type-badge');
