@@ -13,8 +13,11 @@
     <div class="container">
         <!-- 1. 로그인 -->
         <div id="login-section">
-            <h2 style="color:#32bfb6"><i class="fa-solid fa-graduation-cap"></i> Readitude</h2>
-            <input type="text" id="username" placeholder="아이디">
+            <!-- ★ 학생 로그인 화면 로고 -->
+            <img src="logo.png" alt="Readitude Logo" style="height: 60px; margin-bottom: 10px;" onerror="this.style.display='none';">
+            <h2 style="color:#32bfb6; margin-top:0;">Readitude</h2>
+            <p style="color:#777; margin-bottom:20px;">오늘의 학습을 시작해볼까요?</p>
+            <input type="text" id="username" placeholder="아이디 (학생: student1 / 쌤: admin)">
             <input type="password" id="password" placeholder="비밀번호">
             <button class="btn-primary" onclick="login()">로그인</button>
         </div>
@@ -29,8 +32,12 @@
 
         <!-- 3. 대시보드 -->
         <div id="dashboard-section" class="hidden">
-            <h3 id="dash-unit-title">Unit Name</h3>
-            <p style="font-size:0.9rem; color:#888;">순서대로 미션을 클리어하세요!</p>
+            <!-- ★ 학생 대시보드 상단 로고 -->
+            <div style="display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:10px;">
+                <img src="logo.png" alt="Readitude Logo" style="height: 35px;" onerror="this.style.display='none';">
+                <h3 id="dash-unit-title" style="color:#555; margin:0;">Unit Name</h3>
+            </div>
+            <p style="font-size:0.9rem; color:#888;">7단계를 모두 완료하여 미션을 클리어하세요!</p>
             
             <div class="menu-grid">
                 <div class="menu-card" id="menu-1" onclick="tryStart(1, startFlashcard)">
@@ -144,17 +151,6 @@
             <button class="btn-secondary" onclick="backToDashboard()">대시보드로</button>
         </div>
 
-        <!-- 7. 선생님 관리 -->
-        <div id="teacher-section" class="hidden">
-            <h2 style="color:#32bfb6">👨‍🏫 선생님 모드</h2>
-            <select id="teacher-book-select" onchange="renderTeacherTable()"></select>
-            <table class="teacher-table">
-                <thead><tr><th>학생명</th><th>유닛</th><th>진행률</th><th>점수</th><th>완료일</th></tr></thead>
-                <tbody id="teacher-tbody"></tbody>
-            </table>
-            <button class="btn-secondary" onclick="logout()">로그아웃</button>
-        </div>
-
         <!-- 5. 카드 짝맞추기 게임 -->
         <div id="memory-game-section" class="hidden">
             <h3 style="color:#ff9800">🃏 2. 카드 짝맞추기</h3>
@@ -178,11 +174,9 @@
 
         <!-- 7. 단어 몬스터 게임 -->
         <div id="monster-game-section" class="hidden">
-            <!-- ★ [NEW] BGM 토글 버튼 -->
             <button id="bgm-toggle-btn" class="bgm-btn" onclick="toggleMonsterBgm()" title="배경음악 끄기/켜기">
                 <i class="fa-solid fa-volume-high"></i>
             </button>
-            
             <h3 style="color:#e91e63">🐲 6. 단어 몬스터 격파!</h3>
             
             <div class="monster-container">
@@ -207,7 +201,6 @@
                 <div class="question-box" id="mon-question" style="min-height:50px; font-size:1.3rem;">Apple</div>
                 <div class="option-grid" id="mon-options"></div>
             </div>
-            
             <button class="btn-secondary" onclick="stopStudyAndExit()">도망가기</button>
         </div>
 
@@ -252,12 +245,6 @@
         </div>
     </div>
     
-    <!-- 인쇄 영역 -->
-    <div id="print-area" class="print-area">
-        <div class="print-header"><h1 id="print-title">Vocabulary Test</h1><p>Name: __________ Date: __________ Score: ______</p></div>
-        <table class="print-table"><tbody id="print-tbody"></tbody></table>
-    </div>
-
     <script src="script.js"></script>
 </body>
 </html>

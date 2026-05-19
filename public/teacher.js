@@ -3,10 +3,23 @@ let availableBooks = [];
 
 window.onload = function() {
     setPeriod('today'); 
+    // 교재 목록 먼저 불러오고 -> 학생 목록 불러오기 (순서 보장)
     loadBooks().then(() => {
         loadStudents();
     });
+    
+    // 화면 크기 변경 시 헤더 위치 조정 (CSS 변수 연동)
+    adjustLayout();
+    window.addEventListener('resize', adjustLayout);
 };
+
+function adjustLayout() {
+    const headerGroup = document.querySelector('.sticky-header-group');
+    if (headerGroup) {
+        const height = headerGroup.offsetHeight;
+        document.documentElement.style.setProperty('--header-offset', (height) + 'px');
+    }
+}
 
 function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -45,7 +58,7 @@ function setPeriod(type, btn) {
     loadDashboard(); 
 }
 
-// --- 1. 학생 관리 (노션 연동 + 3개 교재 관리) ---
+// --- 1. 학생 관리 (스마트 드롭다운 적용) ---
 async function loadStudents() {
     const tbody = document.getElementById('student-list-body');
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">데이터 불러오는 중...</td></tr>';
@@ -61,13 +74,31 @@ async function loadStudents() {
         }
 
         students.forEach(s => {
+            // ★ [수정] 스마트 드롭다운 생성 함수
             const createSelect = (slotNum, currentVal) => {
-                let opts = `<option value="">(선택 안 함)</option>`;
+                let optionsHtml = `<option value="">(선택 안 함)</option>`;
+                let isCurrentInList = false;
+                
+                // 1. 서버 교재 목록 루프
                 availableBooks.forEach(book => {
-                    const selected = book === currentVal ? 'selected' : '';
-                    opts += `<option value="${book}" ${selected}>${book}</option>`;
+                    if (book === currentVal) {
+                        optionsHtml += `<option value="${book}" selected>✅ ${book}</option>`;
+                        isCurrentInList = true;
+                    } else {
+                        optionsHtml += `<option value="${book}">${book}</option>`;
+                    }
                 });
-                return `<select id="book-${slotNum}-${s.pageId}" style="width:100%; padding:8px; font-size:0.9rem;">${opts}</select>`;
+
+                // 2. ★ 핵심: 노션에는 있는데 목록에 없는 교재 강제 표시
+                // (예: 오타가 있거나, 아직 업로드 안 된 교재도 보이게 함)
+                if (currentVal && !isCurrentInList) {
+                    optionsHtml = `<option value="${currentVal}" selected>⚠️ ${currentVal} (목록에 없음)</option>` + optionsHtml;
+                }
+
+                // 스타일: 값이 있으면 진하게, 없으면 연하게
+                const style = currentVal ? "color:#00796b; font-weight:bold; border:1px solid #32bfb6;" : "color:#999;";
+
+                return `<select id="book-${slotNum}-${s.pageId}" style="width:100%; padding:8px; font-size:0.9rem; ${style}">${optionsHtml}</select>`;
             };
 
             tbody.innerHTML += `
@@ -103,6 +134,7 @@ async function updateStudentBooks(pageId) {
         
         if(res.ok) {
             alert("✅ 저장 완료! 노션에 반영되었습니다.");
+            loadStudents(); // 화면 갱신 (스타일 적용을 위해)
         } else {
             alert("❌ 저장 실패. 서버 로그를 확인하세요.");
         }
@@ -376,7 +408,7 @@ async function loadBooks() {
             data.forEach(b=>printSelect.innerHTML+=`<option>${b}</option>`);
         }
 
-        // 2. ★ [NEW] 교재 삭제 드롭다운
+        // 2. 교재 삭제 드롭다운
         const deleteSelect = document.getElementById('delete-book-select');
         if(deleteSelect) {
             deleteSelect.innerHTML='<option>삭제할 교재 선택</option>';
