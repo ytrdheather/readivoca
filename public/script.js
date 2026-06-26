@@ -30,7 +30,8 @@ let monsterHp = 100;
 let playerHp = 100;
 let monsterWords = [];
 let monsterIndex = 0;
-let rain2000SoundPlayed = false; 
+let rain2000SoundPlayed = false;
+let gameFinished = false;
 
 // ★ 카드 게임 변수 (라운드 관리)
 let memoryRemainingWords = [];
@@ -292,7 +293,7 @@ function finishFlashcard() { playCompletedSound(); unlockNextStep(); }
 let memCards=[], flippedCards=[], matchedCount=0;
 function startMemoryGame() {
     if(currentWords.length<8) { isStudyActive = false; alert("⚡ 단어 부족 자동 통과!"); unlockNextStep(); return; }
-    showSection('memory-game-section'); gameScore=0; matchedCount=0; document.getElementById('mem-score').innerText=0; document.getElementById('mem-time').innerText=60;
+    showSection('memory-game-section'); gameFinished=false; gameScore=0; matchedCount=0; document.getElementById('mem-score').innerText=0; document.getElementById('mem-time').innerText=60;
     memoryRemainingWords = [...currentWords].sort(()=>0.5-Math.random());
     startMemoryRound();
     if(gameTimer) clearInterval(gameTimer); let t=60; gameTimer=setInterval(()=>{ t--; document.getElementById('mem-time').innerText=t; if(t<=0) finishGame('game_memory', gameScore); },1000);
@@ -306,7 +307,15 @@ function startMemoryRound() {
     const grid=document.getElementById('memory-grid'); grid.innerHTML='';
     memCards.forEach((c,i)=>{ const el=document.createElement('div'); el.className='memory-card'; el.dataset.idx=i; el.innerText='?'; el.onclick=()=>flipMemCard(el,c); grid.appendChild(el); });
 }
-function flipMemCard(el,c) { if(el.classList.contains('flipped')||el.classList.contains('matched')||flippedCards.length>=2) return; el.classList.add('flipped'); el.innerText=c.t; flippedCards.push({el,c}); if(flippedCards.length===2) checkMatch(); }
+function flipMemCard(el,c) {
+    if(el.classList.contains('flipped')||el.classList.contains('matched')||flippedCards.length>=2) return;
+    el.classList.add('flipped');
+    el.innerText=c.t;
+    el.classList.add('flip-anim');
+    setTimeout(()=>el.classList.remove('flip-anim'), 300);
+    flippedCards.push({el,c});
+    if(flippedCards.length===2) checkMatch();
+}
 function checkMatch() {
     const [c1,c2]=flippedCards;
     if(c1.c.id===c2.c.id) { 
@@ -351,7 +360,8 @@ function loadQuizQuestion() {
     const q=quizQueue[currentIndex]; const w=q.w; const box=document.getElementById('quiz-question'); const badge=document.getElementById('quiz-type-badge');
     box.style.fontSize = '1.3rem'; 
     if(q.t==='example') { box.innerText=maskWordInSentence(w.example, w.english); badge.innerText="빈칸에 들어갈 말은? (Example)"; } else if(q.t==='synonym') { box.innerText=w.synonyms; badge.innerText="유의어는?"; } else if(q.t==='antonym') { box.innerText=w.antonyms; badge.innerText="반의어는?"; } else { box.innerText=w.meaning; badge.innerText="이 뜻의 영어 단어는?"; }
-    const opts=[w]; while(opts.length<4) { const r=currentWords[Math.floor(Math.random()*currentWords.length)]; if(!opts.some(o=>o.id===r.id)) opts.push(r); } shuffleArray(opts);
+    const pool = currentWords.filter(x => x.id !== w.id); shuffleArray(pool);
+    const opts = [w, ...pool.slice(0, 3)]; shuffleArray(opts);
     const grid=document.getElementById('quiz-options'); grid.innerHTML='';
     opts.forEach(o=>{ const b=document.createElement('button'); b.className='option-btn'; b.innerText=o.english; 
         b.onclick=()=>{ 
@@ -380,7 +390,7 @@ function startRetryQuiz() { if(quizWrongAnswers.length===0) return startContextQ
 
 // 4. 단어 산성비
 function startWordRain() {
-    showSection('word-rain-section'); gameScore=0; rainWords=[]; let life=3; document.getElementById('rain-score').innerText=0; document.getElementById('rain-life').innerText="❤️❤️❤️";
+    showSection('word-rain-section'); gameFinished=false; gameScore=0; rainWords=[]; let life=3; document.getElementById('rain-score').innerText=0; document.getElementById('rain-life').innerText="❤️❤️❤️";
     document.getElementById('btn-rain-early-exit').classList.add('hidden');
     const cont=document.getElementById('rain-canvas-container'); cont.innerHTML=''; document.getElementById('rain-input').value=''; document.getElementById('rain-input').focus();
     stopGame(); let tick=0; rain2000SoundPlayed = false; 
@@ -438,7 +448,7 @@ function startRetrySpelling() { if(wrongAnswers.length===0) return startSpelling
 function startMonsterGame() {
     if(currentWords.length < 10) { isStudyActive = false; alert("⚡ 단어 부족 자동 통과!"); unlockNextStep(); return; }
 
-    showSection('monster-game-section'); gameScore=0; monsterHp=100; playerHp=100; monsterIndex=0;
+    showSection('monster-game-section'); gameFinished=false; gameScore=0; monsterHp=100; playerHp=100; monsterIndex=0;
     document.getElementById('monster-hp').style.width='100%'; document.getElementById('monster-hp-text').innerText='100';
     document.getElementById('player-hp').style.width='100%'; document.getElementById('player-hp-text').innerText='100'; document.getElementById('player-img').innerText='😊';
     monsterBgm.currentTime = 0; monsterBgm.play().catch(e => console.log('BGM 재생 실패'));
@@ -447,7 +457,8 @@ function startMonsterGame() {
 }
 function loadMonsterQuiz() {
     const w = monsterWords[monsterIndex]; document.getElementById('mon-question').innerText = w.meaning;
-    const opts=[w]; while(opts.length<4) { const r=currentWords[Math.floor(Math.random()*currentWords.length)]; if(!opts.some(o=>o.id===r.id)) opts.push(r); } shuffleArray(opts);
+    const pool = currentWords.filter(x => x.id !== w.id); shuffleArray(pool);
+    const opts = [w, ...pool.slice(0, 3)]; shuffleArray(opts);
     const grid=document.getElementById('mon-options'); grid.innerHTML='';
     opts.forEach(o=>{ const b=document.createElement('button'); b.className='option-btn'; b.innerText=o.english; 
         b.onclick=()=>{ 
@@ -470,7 +481,7 @@ function loadTestQuestion() {
     const qBox = document.getElementById('test-question'); const inp = document.getElementById('test-input'); const btn = document.querySelector('#test-section .btn-primary'); 
     let grid = document.getElementById('test-options-grid'); if(!grid) { grid=document.createElement('div'); grid.id='test-options-grid'; grid.className='option-grid'; qBox.parentNode.insertBefore(grid, qBox.nextSibling); } grid.innerHTML='';
     if(q.t==='sub') { qBox.innerText=w.meaning; qBox.style.fontSize="1rem"; inp.style.display='block'; btn.style.display='block'; grid.style.display='none'; inp.value=''; inp.focus(); }
-    else { qBox.innerText=w.english; qBox.style.fontSize="1.5rem"; inp.style.display='none'; btn.style.display='none'; grid.style.display='grid'; const opts=[w]; while(opts.length<4){const r=currentWords[Math.floor(Math.random()*currentWords.length)];if(!opts.some(o=>o.id===r.id))opts.push(r);} shuffleArray(opts); opts.forEach(o=>{const b=document.createElement('button');b.className='option-btn';b.innerText=o.meaning;b.onclick=()=>checkObjTest(o,w);grid.appendChild(b);}); }
+    else { qBox.innerText=w.english; qBox.style.fontSize="1.5rem"; inp.style.display='none'; btn.style.display='none'; grid.style.display='grid'; const pool=currentWords.filter(x=>x.id!==w.id); shuffleArray(pool); const opts=[w,...pool.slice(0,3)]; shuffleArray(opts); opts.forEach(o=>{const b=document.createElement('button');b.className='option-btn';b.innerText=o.meaning;b.onclick=()=>checkObjTest(o,w);grid.appendChild(b);}); }
 }
 function checkTestAnswer() { const q=testQueue[currentIndex]; if(q.t==='obj') return; const v=document.getElementById('test-input').value.trim(); if(v.toLowerCase()===q.w.english.toLowerCase()){ playCorrectSound(); document.getElementById('test-feedback').innerText="정답!"; document.getElementById('test-feedback').style.color='green'; } else { document.getElementById('test-feedback').innerText=`땡! 정답: ${q.w.english}`; document.getElementById('test-feedback').style.color='red'; if(!testWrongAnswers.some(x=>x.id===q.w.id)) testWrongAnswers.push(q.w); } setTimeout(()=>{if(currentIndex<testQueue.length-1){currentIndex++;loadTestQuestion();}else showTestResult();},1000); }
 function checkObjTest(s,c) { const btns=document.querySelectorAll('#test-options-grid .option-btn'); btns.forEach(b=>b.onclick=null); if(s.id===c.id){ playCorrectSound(); document.getElementById('test-feedback').innerText="정답!"; document.getElementById('test-feedback').style.color='green'; } else { document.getElementById('test-feedback').innerText=`땡! 정답: ${c.meaning}`; document.getElementById('test-feedback').style.color='red'; if(!testWrongAnswers.some(x=>x.id===c.id)) testWrongAnswers.push(c); } setTimeout(()=>{if(currentIndex<testQueue.length-1){currentIndex++;loadTestQuestion();}else showTestResult();},1000); }
@@ -491,7 +502,9 @@ function startRetryTest() { if(testWrongAnswers.length===0) return startTest(); 
 
 // --- 종료 ---
 async function finishGame(type, score) {
-    stopGame(); isStudyActive = false; 
+    if (gameFinished) return;
+    gameFinished = true;
+    stopGame(); isStudyActive = false;
     showSection('game-result-section'); document.getElementById('game-final-score').innerText=score;
     const nextBtn = document.getElementById('btn-next-step');
     if(type==='game_rain_clear') { playYeahSound(); triggerConfetti(); nextBtn.style.display='inline-block'; type='game_rain'; }
@@ -513,7 +526,13 @@ function stopGame() {
     if(rainInterval) clearInterval(rainInterval); 
     monsterBgm.pause(); monsterBgm.currentTime = 0;
 }
-function showSection(id) { document.querySelectorAll('.container > div').forEach(d=>d.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
+function showSection(id) {
+    document.querySelectorAll('.container > div').forEach(d => { d.classList.add('hidden'); d.classList.remove('section-visible'); });
+    const el = document.getElementById(id);
+    el.classList.remove('hidden');
+    void el.offsetWidth;
+    el.classList.add('section-visible');
+}
 function backToDashboard() { stopGame(); isStudyActive = false; showSection('dashboard-section'); }
 function goBackToSelection() { showSection('selection-section'); }
 function addEnterListener(id, action) { const el=document.getElementById(id); if(el) el.addEventListener('keydown',e=>{if(e.key==='Enter')action();}); }

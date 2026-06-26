@@ -294,10 +294,20 @@ async function uploadManualText() {
         if(p.length>=2) parsed.push({ book_name:book, unit_name:unit, word_no:i+1, english:p[0].trim(), meaning:p[1].trim(), antonyms:p[2]?.trim(), synonyms:p[3]?.trim(), example:p[4]?.trim() });
     });
 
+    if (parsed.length === 0) return alert("파싱된 단어가 없습니다.\n탭(Tab) 또는 | 로 구분되어 있는지 확인하세요.");
     if(confirm(`${parsed.length}개 업로드?`)) {
-        await fetch(`${API_URL}/admin/bulk-upload`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({words:parsed}) });
-        alert("완료!");
-        loadBooks(); // 책 목록 갱신
+        try {
+            const res = await fetch(`${API_URL}/admin/bulk-upload`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({words:parsed}) });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(`❌ 업로드 실패!\n\n오류: ${data.error || '알 수 없는 오류'}`);
+            } else {
+                alert(`✅ ${data.count}개 단어 업로드 완료!`);
+                loadBooks();
+            }
+        } catch (e) {
+            alert("서버 연결 실패. 서버가 실행 중인지 확인하세요.");
+        }
     }
 }
 function downloadTemplate() {
@@ -309,10 +319,20 @@ function uploadCSV() {
     const file = document.getElementById('csv-file').files[0];
     if (!file) return alert("파일 선택!");
     Papa.parse(file, { header: true, skipEmptyLines: true, complete: async function(results) {
+        if (results.data.length === 0) return alert("CSV에서 데이터를 읽지 못했습니다.");
         if (!confirm(`총 ${results.data.length}개 업로드?`)) return;
-        const res = await fetch(`${API_URL}/admin/bulk-upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ words: results.data }) });
-        alert("완료!");
-        loadBooks(); // 책 목록 갱신
+        try {
+            const res = await fetch(`${API_URL}/admin/bulk-upload`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ words: results.data }) });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(`❌ 업로드 실패!\n\n오류: ${data.error || '알 수 없는 오류'}`);
+            } else {
+                alert(`✅ ${data.count}개 단어 업로드 완료!`);
+                loadBooks();
+            }
+        } catch (e) {
+            alert("서버 연결 실패. 서버가 실행 중인지 확인하세요.");
+        }
     }});
 }
 async function loadPrintUnits() { 
